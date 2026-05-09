@@ -24,6 +24,7 @@ export interface CliOptions {
   browserPath?: string;
   full: boolean;
   selector?: string;
+  section?: string;
   includeLinks: boolean;
   resources: boolean;
   structuredData: boolean;
@@ -189,6 +190,8 @@ export interface DocumentMetadata {
   content_kind?: ContentKind;
   byte_count?: number;
   page_count?: number;
+  section?: string;
+  section_found?: boolean;
   access_status?: AccessStatus;
   lang?: string;
   link_count?: number;

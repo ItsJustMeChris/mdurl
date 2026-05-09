@@ -74,6 +74,7 @@ mdurl install-browser
 |---|---|
 | `--full` | Skip Readability and keep a cleaned full body. |
 | `--selector <css>` | Extract only a matching element subtree. |
+| `--section <heading>` | Emit only the rendered markdown section matching a heading. |
 | `--include-links` | Append an extracted-content `## Links` table. |
 | `--no-resources` | Omit the default `## Page Resources` links/images section. |
 | `--no-structured-data` | Omit the default `## Structured Data` section. |
@@ -191,6 +192,12 @@ Limit context size:
 
 ```sh
 mdurl https://example.com/long-article --max-bytes 20000
+```
+
+Fetch only one heading range from long documentation:
+
+```sh
+mdurl https://example.com/docs --section Installation
 ```
 
 ## Error Contract

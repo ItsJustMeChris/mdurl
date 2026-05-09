@@ -6,6 +6,7 @@ import { fetchPlain } from './fetch/plain.js';
 import { htmlToMarkdown, wordCount } from './convert/markdown.js';
 import { classifyContent, convertNonHtml } from './convert/nonHtml.js';
 import { appendPageResources, emptyPageResources, extractPageResources } from './convert/resources.js';
+import { selectMarkdownSection } from './convert/section.js';
 import { appendStructuredData, extractStructuredData } from './convert/structuredData.js';
 import { accessStatusLabel, detectAccessStatus } from './extract/access.js';
 import { extractHeadMetadata, type HeadMetadata } from './extract/head.js';
@@ -35,13 +36,17 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
     if (contentKind !== 'html') {
       const byteCount = result.body?.byteLength;
       const converted = await convertNonHtml(result, contentKind);
-      const truncated = truncateMarkdown(converted.markdown, options.maxBytes);
+      const selected = selectMarkdownSection(converted.markdown, options.section);
+      const contentMarkdown = options.section ? selected.markdown : converted.markdown;
+      const truncated = truncateMarkdown(contentMarkdown, options.maxBytes);
       const metadata = buildMetadata(result, {
         fetchedAt,
         title: converted.title,
         contentKind: converted.contentKind,
         byteCount,
         pageCount: converted.pageCount,
+        section: options.section,
+        sectionFound: options.section ? selected.found : undefined,
         accessStatus,
         markdown: truncated.markdown,
         truncated: truncated.truncated,
@@ -67,11 +72,13 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
     const converted = htmlToMarkdown(extracted.html, result.url, {
       includeLinks: options.includeLinks,
     });
+    const selected = selectMarkdownSection(converted.markdown, options.section);
+    const contentMarkdown = options.section ? selected.markdown : converted.markdown;
     const structuredData = options.structuredData ? extractStructuredData(result.html, result.url) : [];
     const resources = options.resources ? extractPageResources(result.html, result.url) : emptyPageResources();
     const markdownWithData = options.structuredData
-      ? appendStructuredData(converted.markdown, structuredData)
-      : converted.markdown;
+      ? appendStructuredData(contentMarkdown, structuredData)
+      : contentMarkdown;
     const markdown = options.resources ? appendPageResources(markdownWithData, resources) : markdownWithData;
     const truncated = truncateMarkdown(markdown, options.maxBytes);
     const metadata = buildMetadata(result, {
@@ -80,6 +87,8 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       head,
       contentKind,
       byteCount: result.body?.byteLength,
+      section: options.section,
+      sectionFound: options.section ? selected.found : undefined,
       accessStatus,
       lang: extracted.lang,
       markdown: truncated.markdown,
@@ -184,6 +193,8 @@ function buildMetadata(
     contentKind?: ContentKind;
     byteCount?: number;
     pageCount?: number;
+    section?: string;
+    sectionFound?: boolean;
     accessStatus?: DocumentMetadata['access_status'];
     lang?: string;
     markdown: string;
@@ -232,6 +243,11 @@ function buildMetadata(
 
   if (details.pageCount !== undefined) {
     metadata.page_count = details.pageCount;
+  }
+
+  if (details.section) {
+    metadata.section = details.section;
+    metadata.section_found = Boolean(details.sectionFound);
   }
 
   if (details.accessStatus) {
