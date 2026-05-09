@@ -72,7 +72,7 @@ mdurl install-browser
 | `--no-structured-data` | Omit the default `## Structured Data` section. |
 | `--max-bytes <n>` | Truncate markdown with a `[truncated]` marker. |
 
-By default, `mdurl` appends a compact `## Structured Data` section when the page includes JSON-LD. This is useful on recipe, product, event, article, FAQ, Q&A, and local-business pages where the HTML may be noisy but the embedded schema contains concise facts such as ingredients, instructions, questions, answers, offers, ratings, authors, dates, and canonical images.
+By default, `mdurl` appends a compact `## Structured Data` section when the page includes JSON-LD. This is useful on recipe, product, event, article, FAQ, Q&A, and local-business pages where the HTML may be noisy but the embedded schema contains concise facts such as ingredients, instructions, questions, answers, event dates, venues, performers, offers, ratings, authors, dates, and canonical images.
 
 Example:
 

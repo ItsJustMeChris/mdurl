@@ -55,6 +55,14 @@ export function appendStructuredData(markdown: string, items: StructuredDataItem
     appendField(lines, 'Author', item.authors?.join(', '));
     appendField(lines, 'Published', item.date_published);
     appendField(lines, 'Modified', item.date_modified);
+    appendField(lines, 'Start', item.start_date);
+    appendField(lines, 'End', item.end_date);
+    appendField(lines, 'Previous start', item.previous_start_date);
+    appendField(lines, 'Event status', item.event_status);
+    appendField(lines, 'Attendance mode', item.attendance_mode);
+    appendField(lines, 'Location', item.location);
+    appendField(lines, 'Organizer', item.organizers?.join(', '));
+    appendField(lines, 'Performer', item.performers?.join(', '));
     appendField(lines, 'Yield', item.recipe_yield);
     appendField(lines, 'Prep time', item.prep_time);
     appendField(lines, 'Cook time', item.cook_time);
@@ -135,6 +143,11 @@ function summarizeNode(node: Record<string, unknown>, baseUrl: string): Omit<Str
 
   assignText(item, 'date_published', node.datePublished);
   assignText(item, 'date_modified', node.dateModified);
+  assignText(item, 'start_date', node.startDate);
+  assignText(item, 'end_date', node.endDate);
+  assignText(item, 'previous_start_date', node.previousStartDate);
+  assignNormalizedSchemaText(item, 'event_status', node.eventStatus);
+  assignNormalizedSchemaText(item, 'attendance_mode', node.eventAttendanceMode);
   assignText(item, 'recipe_yield', node.recipeYield);
   assignText(item, 'prep_time', node.prepTime);
   assignText(item, 'cook_time', node.cookTime);
@@ -155,6 +168,15 @@ function summarizeNode(node: Record<string, unknown>, baseUrl: string): Omit<Str
   const questions = questionValues(node.mainEntity ?? node.acceptedAnswer, baseUrl).slice(0, MAX_LIST_ITEMS);
   if (questions.length > 0) item.questions = questions;
 
+  const location = placeValue(node.location);
+  if (location) item.location = location;
+
+  const organizers = arrayValues(node.organizer).map(entityLabel).filter(Boolean);
+  if (organizers.length > 0) item.organizers = organizers;
+
+  const performers = arrayValues(node.performer).map(entityLabel).filter(Boolean);
+  if (performers.length > 0) item.performers = performers;
+
   const rating = ratingValue(node.aggregateRating);
   if (rating) item.rating = rating;
 
@@ -166,6 +188,8 @@ function summarizeNode(node: Record<string, unknown>, baseUrl: string): Omit<Str
     item.description ||
     item.url ||
     item.images?.length ||
+    item.start_date ||
+    item.location ||
     item.ingredients?.length ||
     item.instructions?.length ||
     item.questions?.length ||
@@ -294,13 +318,76 @@ function offerValues(value: unknown, baseUrl: string): string[] {
         return textValue(offer);
       }
 
-      const price = [textValue(offer.priceCurrency), textValue(offer.price)].filter(Boolean).join(' ');
+      const price = priceValue(offer);
       const availability = textValue(offer.availability).replace(/^https?:\/\/schema\.org\//iu, '');
       const url = urlValue(offer.url, baseUrl);
       return [price, availability, url].filter(Boolean).join(' - ');
     })
     .filter(Boolean)
     .slice(0, MAX_LIST_ITEMS);
+}
+
+function priceValue(offer: Record<string, unknown>): string {
+  const directPrice = [textValue(offer.priceCurrency), textValue(offer.price)].filter(Boolean).join(' ');
+  if (directPrice) {
+    return directPrice;
+  }
+
+  const specification = offer.priceSpecification;
+  if (isRecord(specification)) {
+    return [textValue(specification.priceCurrency), textValue(specification.price)].filter(Boolean).join(' ');
+  }
+
+  return '';
+}
+
+function placeValue(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return normalizeSchemaText(value);
+  }
+
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const name = textValue(value.name);
+  const url = textValue(value.url);
+  const address = addressValue(value.address);
+  return [name, address, url].filter(Boolean).join(' - ') || undefined;
+}
+
+function addressValue(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return normalizeSchemaText(value);
+  }
+
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return [
+    textValue(value.streetAddress),
+    textValue(value.addressLocality),
+    textValue(value.addressRegion),
+    textValue(value.postalCode),
+    textValue(value.addressCountry),
+  ]
+    .filter(Boolean)
+    .join(', ') || undefined;
+}
+
+function entityLabel(value: unknown): string {
+  if (typeof value === 'string') {
+    return normalizeSchemaText(value);
+  }
+
+  if (!isRecord(value)) {
+    return '';
+  }
+
+  const name = textValue(value.name) || textValue(value['@id']);
+  const url = textValue(value.url);
+  return [name, url].filter(Boolean).join(' - ');
 }
 
 function urlValue(value: unknown, baseUrl: string): string | undefined {
@@ -322,6 +409,17 @@ function assignText<T extends keyof Omit<StructuredDataItem, 'index' | 'type'>>(
   value: unknown,
 ): void {
   const text = textValue(value);
+  if (text) {
+    (item[key] as string | undefined) = text;
+  }
+}
+
+function assignNormalizedSchemaText<T extends keyof Omit<StructuredDataItem, 'index' | 'type'>>(
+  item: Omit<StructuredDataItem, 'index'>,
+  key: T,
+  value: unknown,
+): void {
+  const text = normalizeSchemaText(textValue(value));
   if (text) {
     (item[key] as string | undefined) = text;
   }
@@ -368,6 +466,10 @@ function htmlToText(value: string): string {
 
   const { document } = parseHTML(`<main>${value}</main>`);
   return (document.querySelector('main')?.textContent ?? value).replace(/\s+/g, ' ').trim();
+}
+
+function normalizeSchemaText(value: string): string {
+  return value.replace(/^https?:\/\/schema\.org\//iu, '').replace(/^http:\/\/schema\.org\//iu, '');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

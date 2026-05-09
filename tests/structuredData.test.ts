@@ -43,6 +43,20 @@ describe('structured data', () => {
           },
         ],
       }),
+      expect.objectContaining({
+        index: 3,
+        type: 'MusicEvent',
+        name: 'Summer Music Festival',
+        description: 'A live outdoor concert.',
+        start_date: '2026-07-21T19:00:00-05:00',
+        end_date: '2026-07-21T23:00:00-05:00',
+        event_status: 'EventScheduled',
+        attendance_mode: 'OfflineEventAttendanceMode',
+        location: 'Example Amphitheater - 123 Music Way, Milwaukee, WI, 53202, US',
+        organizers: ['Example Events - https://example.com/events'],
+        performers: ['The Headliners', 'Opening Band'],
+        offers: ['USD 45.00 - InStock - https://example.com/tickets'],
+      }),
     ]);
   });
 
@@ -52,6 +66,8 @@ describe('structured data', () => {
         index: 1,
         type: 'Recipe',
         name: 'Banana Bread',
+        start_date: '2026-07-21T19:00:00-05:00',
+        location: 'Example Amphitheater',
         ingredients: ['2 cups flour'],
         instructions: ['Mix.', 'Bake.'],
         questions: [{ question: 'Can I freeze it?', answer: 'Yes.' }],
@@ -60,6 +76,8 @@ describe('structured data', () => {
 
     expect(markdown).toContain('## Structured Data');
     expect(markdown).toContain('### 1. Recipe: Banana Bread');
+    expect(markdown).toContain('- **Start:** 2026-07-21T19:00:00-05:00');
+    expect(markdown).toContain('- **Location:** Example Amphitheater');
     expect(markdown).toContain('**Ingredients:**');
     expect(markdown).toContain('- 2 cups flour');
     expect(markdown).toContain('1. Mix.');

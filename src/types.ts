@@ -136,6 +136,14 @@ export interface StructuredDataItem {
   authors?: string[];
   date_published?: string;
   date_modified?: string;
+  start_date?: string;
+  end_date?: string;
+  previous_start_date?: string;
+  event_status?: string;
+  attendance_mode?: string;
+  location?: string;
+  organizers?: string[];
+  performers?: string[];
   recipe_yield?: string;
   prep_time?: string;
   cook_time?: string;
