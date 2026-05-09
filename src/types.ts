@@ -39,6 +39,7 @@ export interface CliOptions {
   includeLinks: boolean;
   resources: boolean;
   structuredData: boolean;
+  transcripts: boolean;
   maxBytes?: number;
   json: boolean;
   frontmatter: boolean;
@@ -244,6 +245,7 @@ export interface DocumentMetadata {
   form_count?: number;
   embed_count?: number;
   structured_data_count?: number;
+  transcript_count?: number;
   redirect_chain?: string[];
   truncated?: boolean;
   error?: string;

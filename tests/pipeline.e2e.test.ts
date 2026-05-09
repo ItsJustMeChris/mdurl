@@ -22,6 +22,7 @@ const baseOptions: CliOptions = {
   includeLinks: false,
   resources: true,
   structuredData: true,
+  transcripts: true,
   json: false,
   frontmatter: true,
   quiet: true,
@@ -114,6 +115,43 @@ describe('pipeline e2e', () => {
           'last-modified': 'Sat, 09 May 2026 12:00:00 GMT',
         });
         response.end('<!doctype html><html><body><main><h1>Cached Page</h1><p>Cached body.</p></main></body></html>');
+        return;
+      }
+
+      if (request.url === '/youtube') {
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end(`<!doctype html>
+          <html>
+            <body>
+              <main><h1>Video Page</h1><p>${'Video description. '.repeat(40)}</p></main>
+              <script>
+                var ytInitialPlayerResponse = {
+                  "captions": {
+                    "playerCaptionsTracklistRenderer": {
+                      "captionTracks": [
+                        {
+                          "baseUrl": "${baseUrl}/captions?lang=en",
+                          "languageCode": "en",
+                          "name": { "simpleText": "English" }
+                        }
+                      ]
+                    }
+                  }
+                };
+              </script>
+            </body>
+          </html>`);
+        return;
+      }
+
+      if (request.url?.startsWith('/captions')) {
+        response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({
+          events: [
+            { tStartMs: 0, segs: [{ utf8: 'Hello ' }, { utf8: 'from captions.' }] },
+            { tStartMs: 2100, segs: [{ utf8: 'Second line.' }] },
+          ],
+        }));
         return;
       }
 
@@ -380,6 +418,17 @@ describe('pipeline e2e', () => {
     expect(result.metadata.original_url).toBe(`${baseUrl}/gone`);
     expect(result.metadata.archived_url).toContain('/web/20260509120000id_/');
     expect(result.markdown).toContain('# Archived Copy');
+  });
+
+  it('appends YouTube transcripts when caption tracks are available', async () => {
+    const result = await runPipeline(`${baseUrl}/youtube`, baseOptions);
+
+    expect(result.ok).toBe(true);
+    expect(result.metadata.transcript_count).toBe(1);
+    expect(result.markdown).toContain('## Transcript');
+    expect(result.markdown).toContain('- **Language:** English / en');
+    expect(result.markdown).toContain('[0:00] Hello from captions.');
+    expect(result.markdown).toContain('[0:02] Second line.');
   });
 
   it('does not browser-render non-2xx SPA-shaped errors in auto mode', async () => {

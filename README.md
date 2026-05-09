@@ -84,6 +84,7 @@ mdurl install-browser
 | `--include-links` | Append an extracted-content `## Links` table. |
 | `--no-resources` | Omit the default `## Page Resources` section. |
 | `--no-structured-data` | Omit the default `## Structured Data` section. |
+| `--no-transcripts` | Omit default video transcript extraction. |
 | `--max-bytes <n>` | Truncate markdown with a `[truncated]` marker. |
 
 HTML pages use Readability plus a cleaned full-page resource inventory. Non-HTML responses are handled before the HTML pipeline so agents do not receive binary or XML as mangled article text:
@@ -99,6 +100,8 @@ HTML pages use Readability plus a cleaned full-page resource inventory. Non-HTML
 | Image/audio/video/binary | Markdown resource stub with source URL and content type. |
 
 By default, `mdurl` appends a compact `## Structured Data` section when the page includes JSON-LD. This is useful on recipe, product, event, article, FAQ, Q&A, and local-business pages where the HTML may be noisy but the embedded schema contains concise facts such as ingredients, instructions, questions, answers, event dates, venues, performers, offers, ratings, authors, dates, and canonical images.
+
+When a YouTube-style player response exposes caption tracks, `mdurl` fetches an available caption track and appends it as a timestamped `## Transcript` section.
 
 Example:
 

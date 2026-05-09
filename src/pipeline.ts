@@ -9,6 +9,7 @@ import { classifyContent, convertNonHtml } from './convert/nonHtml.js';
 import { appendPageResources, emptyPageResources, extractPageResources } from './convert/resources.js';
 import { selectMarkdownSection } from './convert/section.js';
 import { appendStructuredData, extractStructuredData } from './convert/structuredData.js';
+import { appendYouTubeTranscript, extractYouTubeTranscript } from './convert/youtubeTranscript.js';
 import { accessStatusLabel, detectAccessStatus } from './extract/access.js';
 import { extractHeadMetadata, type HeadMetadata } from './extract/head.js';
 import { extractContent } from './extract/readability.js';
@@ -84,11 +85,13 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
     const selected = selectMarkdownSection(converted.markdown, options.section);
     const contentMarkdown = options.section ? selected.markdown : converted.markdown;
     const structuredData = options.structuredData ? extractStructuredData(result.html, result.url) : [];
+    const transcript = options.transcripts ? await extractYouTubeTranscript(result.html, result.url, options) : undefined;
     const resources = options.resources ? extractPageResources(result.html, result.url) : emptyPageResources();
     const markdownWithData = options.structuredData
       ? appendStructuredData(contentMarkdown, structuredData)
       : contentMarkdown;
-    const markdown = options.resources ? appendPageResources(markdownWithData, resources) : markdownWithData;
+    const markdownWithTranscript = transcript ? appendYouTubeTranscript(markdownWithData, transcript) : markdownWithData;
+    const markdown = options.resources ? appendPageResources(markdownWithTranscript, resources) : markdownWithTranscript;
     const truncated = truncateMarkdown(markdown, options.maxBytes);
     const metadata = buildMetadata(result, {
       fetchedAt,
@@ -104,6 +107,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       truncated: truncated.truncated,
       resources,
       structuredData,
+      transcriptCount: transcript ? 1 : 0,
     });
 
     return {
@@ -215,6 +219,7 @@ function buildMetadata(
     truncated: boolean;
     resources: PageResources;
     structuredData: ReturnType<typeof extractStructuredData>;
+    transcriptCount?: number;
   },
 ): DocumentMetadata {
   const metadata: DocumentMetadata = {
@@ -306,6 +311,10 @@ function buildMetadata(
 
   if (details.structuredData.length > 0) {
     metadata.structured_data_count = details.structuredData.length;
+  }
+
+  if (details.transcriptCount) {
+    metadata.transcript_count = details.transcriptCount;
   }
 
   if (result.redirectChain.length > 0) {
