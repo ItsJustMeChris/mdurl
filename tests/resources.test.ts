@@ -14,6 +14,7 @@ describe('page resources', () => {
       expect.arrayContaining([
         expect.objectContaining({ context: 'header/logo', text: "Oscar's Frozen Custard logo", url: 'https://example.com/' }),
         expect.objectContaining({ context: 'navigation', text: 'Menu', url: 'https://example.com/menu/' }),
+        expect.objectContaining({ context: 'navigation', text: 'Cart', url: 'https://example.com/cart/' }),
         expect.objectContaining({ context: 'footer', text: 'Policies', url: 'https://example.com/policies/' }),
       ]),
     );
@@ -123,8 +124,10 @@ describe('page resources', () => {
     });
 
     expect(markdown).toContain('## Page Resources');
+    expect(markdown).toContain('### Navigation');
     expect(markdown).toContain('| 1 | navigation | Menu | https://example.com/menu/ |');
-    expect(markdown).toContain('| 1 | header/logo | [logo] Site logo | https://example.com/logo.png | https://example.com/ |');
+    expect(markdown).toContain('### Links');
+    expect(markdown).toContain('| 1 | header/logo | [logo] Site logo | img | https://example.com/logo.png | https://example.com/ |');
     expect(markdown).toContain('### Forms');
     expect(markdown).toContain('#### 1. Site search');
     expect(markdown).toContain('| q | search | yes | Search |  |');

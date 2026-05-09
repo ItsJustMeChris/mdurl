@@ -50,6 +50,21 @@ export function appendPageResources(markdown: string, resources: PageResources):
   }
 
   const sections = ['## Page Resources', ''];
+  const navigationLinks = resources.links.filter((link) => isNavigationalContext(link.context));
+
+  if (navigationLinks.length > 0) {
+    sections.push(
+      '### Navigation',
+      '',
+      '| # | Area | Text | URL |',
+      '|---:|---|---|---|',
+      ...navigationLinks.map(
+        (link) =>
+          `| ${link.index} | ${escapeTableCell(link.context)} | ${escapeTableCell(link.text)} | ${escapeTableCell(link.url)} |`,
+      ),
+      '',
+    );
+  }
 
   if (resources.links.length > 0) {
     sections.push(
@@ -69,11 +84,11 @@ export function appendPageResources(markdown: string, resources: PageResources):
     sections.push(
       '### Images',
       '',
-      '| # | Context | Label | URL | Linked URL |',
-      '|---:|---|---|---|---|',
+      '| # | Context | Label | Source | URL | Linked URL |',
+      '|---:|---|---|---|---|---|',
       ...resources.images.map(
         (image) =>
-          `| ${image.index} | ${escapeTableCell(image.context)} | ${escapeTableCell(image.label)} | ${escapeTableCell(image.url)} | ${escapeTableCell(image.linked_url ?? '')} |`,
+          `| ${image.index} | ${escapeTableCell(image.context)} | ${escapeTableCell(image.label)} | ${image.source} | ${escapeTableCell(image.url)} | ${escapeTableCell(image.linked_url ?? '')} |`,
       ),
       '',
     );
@@ -506,8 +521,23 @@ function labelForLink(anchor: Element, url: string): string {
     normalizeText(anchor.getAttribute('aria-label') ?? '') ||
     normalizeText(anchor.getAttribute('title') ?? '') ||
     imageLabel ||
+    labelFromUrl(url) ||
     url
   );
+}
+
+function labelFromUrl(value: string): string | undefined {
+  try {
+    const url = new URL(value);
+    const segment = url.pathname.split('/').filter(Boolean).at(-1) || url.hostname;
+    const label = segment
+      .replace(/\.[a-z0-9]{2,5}$/i, '')
+      .replace(/[-_]+/g, ' ')
+      .replace(/\b\w/g, (character) => character.toUpperCase());
+    return normalizeText(label) || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function labelForImage(image: Element): string {
@@ -582,6 +612,10 @@ function absolutize(value: string, baseUrl: string): string {
 
 function shouldSkipUrl(value: string): boolean {
   return /^(javascript:|data:|blob:|about:)/i.test(value);
+}
+
+function isNavigationalContext(context: string): boolean {
+  return /(^|\/)(header|navigation|footer|breadcrumb|sidebar|aside|menu|logo)(\/|$)/i.test(context);
 }
 
 function isPlaceholderImage(value: string): boolean {
