@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldUseCleanFallback } from '../src/extract/readability.js';
+import { extractContent, shouldUseCleanFallback } from '../src/extract/readability.js';
 
 describe('shouldUseCleanFallback', () => {
   it('falls back when Readability captures a small menu fragment', () => {
@@ -33,5 +33,27 @@ describe('shouldUseCleanFallback', () => {
     const cleanedText = `Short Article A concise article. ${'footer link '.repeat(200)}`;
 
     expect(shouldUseCleanFallback(readableHtml, readableText, cleanedHtml, cleanedText)).toBe(false);
+  });
+});
+
+describe('extractContent', () => {
+  it('adds the page title as an H1 when Readability starts at section headings', () => {
+    const html = `
+      <!doctype html>
+      <html>
+        <head><title>Using the Fetch API - Web APIs | MDN</title></head>
+        <body>
+          <article>
+            <h2>Making a request</h2>
+            <p>${'Fetch API documentation content. '.repeat(20)}</p>
+          </article>
+        </body>
+      </html>
+    `;
+
+    const extracted = extractContent(html, 'https://example.com/docs', { full: false });
+
+    expect(extracted.html).toContain('<h1>Using the Fetch API - Web APIs</h1>');
+    expect(extracted.html).toContain('<h2>Making a request</h2>');
   });
 });

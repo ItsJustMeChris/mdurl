@@ -81,7 +81,7 @@ function withHeading(articleNode: Element, title?: string): string {
     return articleNode.outerHTML;
   }
 
-  const firstHeading = articleNode.querySelector('h1, h2');
+  const firstHeading = articleNode.querySelector('h1');
   if (firstHeading?.textContent?.trim()) {
     return articleNode.outerHTML;
   }
