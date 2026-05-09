@@ -18,6 +18,7 @@ const baseOptions: CliOptions = {
   full: false,
   includeLinks: false,
   resources: true,
+  structuredData: true,
   json: false,
   frontmatter: true,
   quiet: true,
@@ -94,6 +95,7 @@ describe('pipeline e2e', () => {
     expect(parsed.status).toBe(200);
     expect(parsed.markdown).toContain('# Example Domain');
     expect(parsed.resources.links.length).toBeGreaterThan(0);
+    expect(parsed.structured_data).toEqual([]);
   });
 
   it('can omit default page resources', async () => {
@@ -102,6 +104,13 @@ describe('pipeline e2e', () => {
     expect(result.markdown).not.toContain('## Page Resources');
     expect(result.metadata.link_count).toBeUndefined();
     expect(result.resources.links).toEqual([]);
+  });
+
+  it('can omit default structured data', async () => {
+    const result = await runPipeline(`${baseUrl}/static`, { ...baseOptions, structuredData: false });
+
+    expect(result.metadata.structured_data_count).toBeUndefined();
+    expect(result.structuredData).toEqual([]);
   });
 
   it('reports HTTP failures in the same envelope shape', async () => {

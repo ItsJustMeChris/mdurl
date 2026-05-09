@@ -69,7 +69,33 @@ mdurl install-browser
 | `--selector <css>` | Extract only a matching element subtree. |
 | `--include-links` | Append an extracted-content `## Links` table. |
 | `--no-resources` | Omit the default `## Page Resources` links/images section. |
+| `--no-structured-data` | Omit the default `## Structured Data` section. |
 | `--max-bytes <n>` | Truncate markdown with a `[truncated]` marker. |
+
+By default, `mdurl` appends a compact `## Structured Data` section when the page includes JSON-LD. This is useful on recipe, product, event, article, and local-business pages where the HTML may be noisy but the embedded schema contains concise facts such as ingredients, instructions, offers, ratings, authors, dates, and canonical images.
+
+Example:
+
+```markdown
+## Structured Data
+
+### 1. Recipe: Banana Banana Bread
+
+- **Description:** A moist banana bread recipe.
+- **Author:** Shelley Albeluhn
+- **Yield:** 1 9x5-inch loaf
+- **Total time:** PT1H15M
+
+**Ingredients:**
+
+- 2 cups all-purpose flour
+- 1 teaspoon baking soda
+
+**Instructions:**
+
+1. Preheat oven to 350 degrees F.
+2. Mix ingredients and bake.
+```
 
 By default, `mdurl` appends a `## Page Resources` section built from the full fetched page, even when the main markdown body is extracted with Readability. This section includes navigation/header/footer links, linked images, logos, favicons, Open Graph images, and other image URLs that are useful for agents that need to follow the page or retrieve assets.
 
@@ -118,6 +144,12 @@ Retrieve page assets from structured JSON:
 
 ```sh
 mdurl https://example.com --json | jq '.resources.images[] | select(.label | test("logo"; "i"))'
+```
+
+Inspect recipe or product schema:
+
+```sh
+mdurl https://example.com/recipe --json | jq '.structured_data[] | {type, name, ingredients, offers}'
 ```
 
 Force JavaScript rendering for a known client-side app:

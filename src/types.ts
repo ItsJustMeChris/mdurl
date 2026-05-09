@@ -22,6 +22,7 @@ export interface CliOptions {
   selector?: string;
   includeLinks: boolean;
   resources: boolean;
+  structuredData: boolean;
   maxBytes?: number;
   json: boolean;
   frontmatter: boolean;
@@ -93,6 +94,28 @@ export interface PageResources {
   images: PageImageReference[];
 }
 
+export interface StructuredDataItem {
+  index: number;
+  type: string;
+  name?: string;
+  description?: string;
+  url?: string;
+  images?: string[];
+  authors?: string[];
+  date_published?: string;
+  date_modified?: string;
+  recipe_yield?: string;
+  prep_time?: string;
+  cook_time?: string;
+  total_time?: string;
+  recipe_category?: string[];
+  recipe_cuisine?: string[];
+  ingredients?: string[];
+  instructions?: string[];
+  rating?: string;
+  offers?: string[];
+}
+
 export interface MarkdownResult {
   markdown: string;
   links: LinkReference[];
@@ -111,6 +134,7 @@ export interface DocumentMetadata {
   lang?: string;
   link_count?: number;
   image_count?: number;
+  structured_data_count?: number;
   redirect_chain?: string[];
   truncated?: boolean;
   error?: string;
@@ -121,6 +145,7 @@ export interface PipelineSuccess {
   metadata: DocumentMetadata;
   markdown: string;
   resources: PageResources;
+  structuredData: StructuredDataItem[];
   exitCode: 0;
 }
 
@@ -129,6 +154,7 @@ export interface PipelineFailure {
   metadata: DocumentMetadata;
   markdown: '';
   resources: PageResources;
+  structuredData: StructuredDataItem[];
   exitCode: number;
 }
 

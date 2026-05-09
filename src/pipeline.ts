@@ -5,6 +5,7 @@ import { fetchBrowser } from './fetch/browser.js';
 import { fetchPlain } from './fetch/plain.js';
 import { htmlToMarkdown, wordCount } from './convert/markdown.js';
 import { appendPageResources, emptyPageResources, extractPageResources } from './convert/resources.js';
+import { appendStructuredData, extractStructuredData } from './convert/structuredData.js';
 import { extractContent } from './extract/readability.js';
 import { renderFrontmatter } from './output/frontmatter.js';
 import { renderJsonEnvelope } from './output/envelope.js';
@@ -31,8 +32,12 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
     const converted = htmlToMarkdown(extracted.html, result.url, {
       includeLinks: options.includeLinks,
     });
+    const structuredData = options.structuredData ? extractStructuredData(result.html, result.url) : [];
     const resources = options.resources ? extractPageResources(result.html, result.url) : emptyPageResources();
-    const markdown = options.resources ? appendPageResources(converted.markdown, resources) : converted.markdown;
+    const markdownWithData = options.structuredData
+      ? appendStructuredData(converted.markdown, structuredData)
+      : converted.markdown;
+    const markdown = options.resources ? appendPageResources(markdownWithData, resources) : markdownWithData;
     const truncated = truncateMarkdown(markdown, options.maxBytes);
     const metadata = buildMetadata(result, {
       fetchedAt,
@@ -41,6 +46,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       markdown: truncated.markdown,
       truncated: truncated.truncated,
       resources,
+      structuredData,
     });
 
     return {
@@ -48,6 +54,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       metadata,
       markdown: truncated.markdown,
       resources,
+      structuredData,
       exitCode: 0,
     };
   } catch (error) {
@@ -69,6 +76,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       metadata,
       markdown: '',
       resources: emptyPageResources(),
+      structuredData: [],
       exitCode: normalized.exitCode,
     };
   }
@@ -76,7 +84,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
 
 export function formatResult(result: PipelineResult, options: CliOptions): string {
   if (options.json) {
-    return renderJsonEnvelope(result.metadata, result.markdown, result.resources);
+    return renderJsonEnvelope(result.metadata, result.markdown, result.resources, result.structuredData);
   }
 
   if (!options.frontmatter) {
@@ -128,6 +136,7 @@ function buildMetadata(
     markdown: string;
     truncated: boolean;
     resources: PageResources;
+    structuredData: ReturnType<typeof extractStructuredData>;
   },
 ): DocumentMetadata {
   const metadata: DocumentMetadata = {
@@ -158,6 +167,10 @@ function buildMetadata(
 
   if (details.resources.images.length > 0) {
     metadata.image_count = details.resources.images.length;
+  }
+
+  if (details.structuredData.length > 0) {
+    metadata.structured_data_count = details.structuredData.length;
   }
 
   if (result.redirectChain.length > 0) {

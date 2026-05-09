@@ -31,6 +31,7 @@ export function buildProgram(): Command {
     .option('--selector <css>', 'extract only a matching element subtree')
     .option('--include-links', 'append an extracted-content Links table')
     .option('--no-resources', 'omit the default Page Resources links/images section')
+    .option('--no-structured-data', 'omit the default Structured Data section')
     .option('--max-bytes <n>', 'truncate markdown to this many bytes', parsePositiveInteger)
     .option('--json', 'emit a JSON envelope')
     .option('--no-frontmatter', 'emit markdown body only')
@@ -95,6 +96,7 @@ interface RawCommandOptions {
   selector?: string;
   includeLinks?: boolean;
   resources?: boolean;
+  structuredData?: boolean;
   maxBytes?: number;
   json?: boolean;
   frontmatter?: boolean;
@@ -118,6 +120,7 @@ function normalizeOptions(raw: RawCommandOptions): CliOptions {
     selector: raw.selector,
     includeLinks: Boolean(raw.includeLinks),
     resources: raw.resources !== false,
+    structuredData: raw.structuredData !== false,
     maxBytes: raw.maxBytes,
     json: Boolean(raw.json),
     frontmatter: raw.frontmatter !== false,
