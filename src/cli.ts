@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { Command, InvalidArgumentError } from 'commander';
 import { installBrowser } from './installBrowser.js';
 import { formatResult, runPipeline, writeResult } from './pipeline.js';
-import type { CliOptions, HeaderPair, JsMode } from './types.js';
+import { jsonEnvelopeObject } from './output/envelope.js';
+import type { CliOptions, HeaderPair, JsMode, PipelineResult } from './types.js';
 
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 mdurl/0.1.0';
@@ -15,7 +16,7 @@ export function buildProgram(): Command {
     .name('mdurl')
     .description('Fetch a webpage and emit clean markdown for agents.')
     .version('0.1.0')
-    .argument('[url]', 'URL to fetch')
+    .argument('[urls...]', 'URL(s) to fetch')
     .option('--timeout <ms>', 'request timeout in milliseconds', parsePositiveInteger, 30_000)
     .option('-H, --header <k:v>', 'extra request header; repeatable', collectHeader, [])
     .option('--cookie <str>', 'Cookie header value')
@@ -39,22 +40,31 @@ export function buildProgram(): Command {
     .option('--no-frontmatter', 'emit markdown body only')
     .option('-o, --output <file>', 'write output to a file')
     .option('--quiet', 'suppress stderr progress lines')
-    .action(async (url: string | undefined, rawOptions: RawCommandOptions) => {
-      if (!url) {
+    .action(async (urls: string[], rawOptions: RawCommandOptions) => {
+      if (urls.length === 0) {
         program.help({ error: true });
         return;
       }
 
       const options = normalizeOptions(rawOptions);
-      const result = await runPipeline(url, options);
-      const output = formatResult(result, options);
-      await writeResult(output, options);
+      const results: PipelineResult[] = [];
 
-      if (!result.ok && !options.quiet && !options.output) {
-        process.stderr.write(`mdurl: ${result.metadata.error}\n`);
+      for (const url of urls) {
+        results.push(await runPipeline(url, options));
       }
 
-      process.exitCode = result.exitCode;
+      const output = formatCliResults(results, options);
+      await writeResult(output, options);
+
+      if (!options.quiet && !options.output) {
+        for (const result of results) {
+          if (!result.ok) {
+            process.stderr.write(`mdurl: ${result.metadata.url}: ${result.metadata.error}\n`);
+          }
+        }
+      }
+
+      process.exitCode = Math.max(...results.map((result) => result.exitCode));
     });
 
   program
@@ -81,6 +91,24 @@ export async function main(argv = process.argv): Promise<void> {
 
     throw error;
   }
+}
+
+function formatCliResults(results: PipelineResult[], options: CliOptions): string {
+  if (results.length === 1) {
+    return formatResult(results[0], options);
+  }
+
+  if (options.json) {
+    return `${JSON.stringify(
+      results.map((result) =>
+        jsonEnvelopeObject(result.metadata, result.markdown, result.resources, result.structuredData),
+      ),
+      null,
+      2,
+    )}\n`;
+  }
+
+  return results.map((result) => formatResult(result, options).trimEnd()).join('\n\n<!-- mdurl-next-url -->\n\n');
 }
 
 interface RawCommandOptions {

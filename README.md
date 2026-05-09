@@ -32,10 +32,13 @@ canonical_url: https://example.com/
 
 ```sh
 mdurl <url> [options]
+mdurl <url1> <url2> [options]
 mdurl install-browser
 mdurl --version
 mdurl --help
 ```
+
+When multiple URLs are provided, markdown/frontmatter outputs are concatenated with `<!-- mdurl-next-url -->` separators. With `--json`, output is a JSON array of envelopes.
 
 ### Fetching
 

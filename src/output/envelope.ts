@@ -6,5 +6,14 @@ export function renderJsonEnvelope(
   resources?: PageResources,
   structuredData?: StructuredDataItem[],
 ): string {
-  return `${JSON.stringify({ ...metadata, markdown, resources, structured_data: structuredData }, null, 2)}\n`;
+  return `${JSON.stringify(jsonEnvelopeObject(metadata, markdown, resources, structuredData), null, 2)}\n`;
+}
+
+export function jsonEnvelopeObject(
+  metadata: DocumentMetadata,
+  markdown: string,
+  resources?: PageResources,
+  structuredData?: StructuredDataItem[],
+): Record<string, unknown> {
+  return { ...metadata, markdown, resources, structured_data: structuredData };
 }
