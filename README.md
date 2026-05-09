@@ -76,7 +76,7 @@ mdurl install-browser
 | `--selector <css>` | Extract only a matching element subtree. |
 | `--section <heading>` | Emit only the rendered markdown section matching a heading. |
 | `--include-links` | Append an extracted-content `## Links` table. |
-| `--no-resources` | Omit the default `## Page Resources` links/images section. |
+| `--no-resources` | Omit the default `## Page Resources` section. |
 | `--no-structured-data` | Omit the default `## Structured Data` section. |
 | `--max-bytes <n>` | Truncate markdown with a `[truncated]` marker. |
 
@@ -121,12 +121,18 @@ Example:
    Yes. Wrap it tightly and freeze for up to 3 months.
 ```
 
-By default, `mdurl` appends a `## Page Resources` section built from the full fetched page, even when the main markdown body is extracted with Readability. This section includes navigation/header/footer links, linked images, logos, favicons, Open Graph images, lazy-loaded `data-src`/`data-srcset` images, responsive `<picture>` sources, forms, and embedded iframe/video/audio URLs that are useful for agents that need to follow the page, retrieve assets, or understand available page actions.
+By default, `mdurl` appends a `## Page Resources` section built from the full fetched page, even when the main markdown body is extracted with Readability. This section includes a heading table of contents, navigation/header/footer links, linked images, logos, favicons, Open Graph images, lazy-loaded `data-src`/`data-srcset` images, responsive `<picture>` sources, forms, and embedded iframe/video/audio URLs that are useful for agents that need to follow the page, retrieve assets, or understand available page actions.
 
 Example:
 
 ```markdown
 ## Page Resources
+
+### Table of Contents
+
+| # | Level | Text | URL |
+|---:|---:|---|---|
+| 1 | 1 | Menu | https://example.com/menu/#menu |
 
 ### Navigation
 

@@ -18,6 +18,12 @@ describe('page resources', () => {
         expect.objectContaining({ context: 'footer', text: 'Policies', url: 'https://example.com/policies/' }),
       ]),
     );
+    expect(resources.headings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ level: 1, text: 'Menu', url: 'https://example.com/menu/#menu' }),
+        expect.objectContaining({ level: 2, text: 'Featured Burgers' }),
+      ]),
+    );
     expect(resources.images).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -88,6 +94,10 @@ describe('page resources', () => {
 
   it('appends resources as markdown tables', () => {
     const markdown = appendPageResources('# Page\n', {
+      headings: [
+        { index: 1, level: 1, text: 'Menu', url: 'https://example.com/menu/#menu' },
+        { index: 2, level: 2, text: 'Featured Burgers' },
+      ],
       links: [{ index: 1, context: 'navigation', text: 'Menu', url: 'https://example.com/menu/' }],
       images: [
         {
@@ -125,6 +135,8 @@ describe('page resources', () => {
 
     expect(markdown).toContain('## Page Resources');
     expect(markdown).toContain('### Navigation');
+    expect(markdown).toContain('### Table of Contents');
+    expect(markdown).toContain('| 1 | 1 | Menu | https://example.com/menu/#menu |');
     expect(markdown).toContain('| 1 | navigation | Menu | https://example.com/menu/ |');
     expect(markdown).toContain('### Links');
     expect(markdown).toContain('| 1 | header/logo | [logo] Site logo | img | https://example.com/logo.png | https://example.com/ |');

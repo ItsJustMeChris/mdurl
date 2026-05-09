@@ -3,12 +3,14 @@ import type {
   PageEmbedReference,
   PageFormField,
   PageFormReference,
+  PageHeadingReference,
   PageImageReference,
   PageLinkReference,
   PageResources,
 } from '../types.js';
 
 const EMPTY_RESOURCES: PageResources = {
+  headings: [],
   links: [],
   images: [],
   forms: [],
@@ -17,6 +19,7 @@ const EMPTY_RESOURCES: PageResources = {
 
 export function emptyPageResources(): PageResources {
   return {
+    headings: [],
     links: [],
     images: [],
     forms: [],
@@ -32,6 +35,7 @@ export function extractPageResources(html: string, baseUrl: string): PageResourc
   }
 
   return {
+    headings: extractHeadings(document, baseUrl),
     links: extractLinks(document, baseUrl),
     images: extractImages(document, baseUrl),
     forms: extractForms(document, baseUrl),
@@ -44,7 +48,8 @@ export function appendPageResources(markdown: string, resources: PageResources):
     resources.links.length === 0 &&
     resources.images.length === 0 &&
     resources.forms.length === 0 &&
-    resources.embeds.length === 0
+    resources.embeds.length === 0 &&
+    resources.headings.length === 0
   ) {
     return markdown;
   }
@@ -61,6 +66,20 @@ export function appendPageResources(markdown: string, resources: PageResources):
       ...navigationLinks.map(
         (link) =>
           `| ${link.index} | ${escapeTableCell(link.context)} | ${escapeTableCell(link.text)} | ${escapeTableCell(link.url)} |`,
+      ),
+      '',
+    );
+  }
+
+  if (resources.headings.length > 0) {
+    sections.push(
+      '### Table of Contents',
+      '',
+      '| # | Level | Text | URL |',
+      '|---:|---:|---|---|',
+      ...resources.headings.map(
+        (heading) =>
+          `| ${heading.index} | ${heading.level} | ${escapeTableCell(heading.text)} | ${escapeTableCell(heading.url ?? '')} |`,
       ),
       '',
     );
@@ -141,6 +160,17 @@ export function appendPageResources(markdown: string, resources: PageResources):
   }
 
   return `${markdown.trimEnd()}\n\n${sections.join('\n').trimEnd()}\n`;
+}
+
+function extractHeadings(document: Document, baseUrl: string): PageHeadingReference[] {
+  return Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+    .map((heading) => ({
+      level: Number.parseInt(heading.tagName.slice(1), 10),
+      text: normalizeText(heading.textContent ?? ''),
+      url: headingUrl(heading, baseUrl),
+    }))
+    .filter((heading) => heading.text)
+    .map((heading, index) => ({ ...heading, index: index + 1 }));
 }
 
 function extractLinks(document: Document, baseUrl: string): PageLinkReference[] {
@@ -569,6 +599,17 @@ function closestLinkUrl(element: Element, baseUrl: string): string | undefined {
   const anchor = element.closest('a[href]');
   const href = anchor?.getAttribute('href');
   return href ? absolutize(href, baseUrl) : undefined;
+}
+
+function headingUrl(heading: Element, baseUrl: string): string | undefined {
+  const id = heading.getAttribute('id') || heading.querySelector('[id]')?.getAttribute('id');
+  if (id) {
+    return absolutize(`#${id}`, baseUrl);
+  }
+
+  const anchor = heading.querySelector('a[href]');
+  const href = anchor?.getAttribute('href');
+  return href && href.startsWith('#') ? absolutize(href, baseUrl) : undefined;
 }
 
 function bestSrcsetUrl(value: string | null): string | undefined {

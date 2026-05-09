@@ -86,6 +86,13 @@ export interface PageLinkReference extends LinkReference {
   context: string;
 }
 
+export interface PageHeadingReference {
+  index: number;
+  level: number;
+  text: string;
+  url?: string;
+}
+
 export interface PageImageReference {
   index: number;
   context: string;
@@ -126,6 +133,7 @@ export interface PageEmbedReference {
 }
 
 export interface PageResources {
+  headings: PageHeadingReference[];
   links: PageLinkReference[];
   images: PageImageReference[];
   forms: PageFormReference[];
@@ -195,6 +203,7 @@ export interface DocumentMetadata {
   access_status?: AccessStatus;
   lang?: string;
   link_count?: number;
+  heading_count?: number;
   image_count?: number;
   form_count?: number;
   embed_count?: number;

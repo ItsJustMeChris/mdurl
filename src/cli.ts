@@ -31,7 +31,7 @@ export function buildProgram(): Command {
     .option('--selector <css>', 'extract only a matching element subtree')
     .option('--section <heading>', 'emit only the rendered markdown section matching a heading')
     .option('--include-links', 'append an extracted-content Links table')
-    .option('--no-resources', 'omit the default Page Resources links/images section')
+    .option('--no-resources', 'omit the default Page Resources section')
     .option('--no-structured-data', 'omit the default Structured Data section')
     .option('--max-bytes <n>', 'truncate markdown to this many bytes', parsePositiveInteger)
     .option('--json', 'emit a JSON envelope')
