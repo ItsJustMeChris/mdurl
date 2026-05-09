@@ -33,6 +33,56 @@ describe('page resources', () => {
         expect.objectContaining({ context: 'metadata', label: 'og:image', url: 'https://example.com/share-card.jpg' }),
       ]),
     );
+    expect(resources.forms).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          context: 'header',
+          label: 'Site search',
+          action: 'https://example.com/search',
+          method: 'get',
+          fields: [
+            expect.objectContaining({
+              name: 'q',
+              type: 'search',
+              label: 'Search',
+              required: true,
+              placeholder: 'Search menu',
+            }),
+          ],
+          buttons: ['Search'],
+        }),
+        expect.objectContaining({
+          context: 'article',
+          label: 'Contact form',
+          action: 'https://example.com/contact',
+          method: 'post',
+          fields: expect.arrayContaining([
+            expect.objectContaining({ name: 'email', type: 'email', label: 'Email', required: true }),
+            expect.objectContaining({ name: 'message', type: 'textarea', label: 'Message', placeholder: 'How can we help?' }),
+            expect.objectContaining({ name: 'topic', type: 'select', options: ['General question', 'Catering'] }),
+          ]),
+          buttons: ['Send'],
+        }),
+      ]),
+    );
+    expect(resources.embeds).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          context: 'article',
+          type: 'iframe',
+          label: 'Location map',
+          url: 'https://example.com/map.html',
+          width: '600',
+          height: '400',
+        }),
+        expect.objectContaining({
+          context: 'article',
+          type: 'video',
+          label: 'video embed',
+          url: 'https://example.com/tour.mp4',
+        }),
+      ]),
+    );
   });
 
   it('appends resources as markdown tables', () => {
@@ -48,10 +98,37 @@ describe('page resources', () => {
           source: 'img',
         },
       ],
+      forms: [
+        {
+          index: 1,
+          context: 'header',
+          label: 'Site search',
+          action: 'https://example.com/search',
+          method: 'get',
+          fields: [{ name: 'q', type: 'search', label: 'Search', required: true }],
+          buttons: ['Search'],
+        },
+      ],
+      embeds: [
+        {
+          index: 1,
+          context: 'article',
+          label: 'Location map',
+          url: 'https://example.com/map.html',
+          type: 'iframe',
+          width: '600',
+          height: '400',
+        },
+      ],
     });
 
     expect(markdown).toContain('## Page Resources');
     expect(markdown).toContain('| 1 | navigation | Menu | https://example.com/menu/ |');
     expect(markdown).toContain('| 1 | header/logo | [logo] Site logo | https://example.com/logo.png | https://example.com/ |');
+    expect(markdown).toContain('### Forms');
+    expect(markdown).toContain('#### 1. Site search');
+    expect(markdown).toContain('| q | search | yes | Search |  |');
+    expect(markdown).toContain('### Embeds');
+    expect(markdown).toContain('| 1 | article | iframe | Location map | https://example.com/map.html | 600x400 |');
   });
 });

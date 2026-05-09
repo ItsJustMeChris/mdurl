@@ -89,9 +89,41 @@ export interface PageImageReference {
   source: 'img' | 'srcset' | 'data' | 'source' | 'icon' | 'meta' | 'style';
 }
 
+export interface PageFormReference {
+  index: number;
+  context: string;
+  label: string;
+  action: string;
+  method: string;
+  fields: PageFormField[];
+  buttons: string[];
+}
+
+export interface PageFormField {
+  name?: string;
+  type: string;
+  label?: string;
+  required?: boolean;
+  placeholder?: string;
+  value?: string;
+  options?: string[];
+}
+
+export interface PageEmbedReference {
+  index: number;
+  context: string;
+  label: string;
+  url: string;
+  type: 'iframe' | 'embed' | 'object' | 'video' | 'audio';
+  width?: string;
+  height?: string;
+}
+
 export interface PageResources {
   links: PageLinkReference[];
   images: PageImageReference[];
+  forms: PageFormReference[];
+  embeds: PageEmbedReference[];
 }
 
 export interface StructuredDataItem {
@@ -141,6 +173,8 @@ export interface DocumentMetadata {
   lang?: string;
   link_count?: number;
   image_count?: number;
+  form_count?: number;
+  embed_count?: number;
   structured_data_count?: number;
   redirect_chain?: string[];
   truncated?: boolean;

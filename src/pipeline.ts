@@ -173,6 +173,14 @@ function buildMetadata(
     metadata.image_count = details.resources.images.length;
   }
 
+  if (details.resources.forms.length > 0) {
+    metadata.form_count = details.resources.forms.length;
+  }
+
+  if (details.resources.embeds.length > 0) {
+    metadata.embed_count = details.resources.embeds.length;
+  }
+
   if (details.structuredData.length > 0) {
     metadata.structured_data_count = details.structuredData.length;
   }

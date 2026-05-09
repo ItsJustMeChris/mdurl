@@ -1,15 +1,26 @@
 import { parseHTML } from 'linkedom';
-import type { PageImageReference, PageLinkReference, PageResources } from '../types.js';
+import type {
+  PageEmbedReference,
+  PageFormField,
+  PageFormReference,
+  PageImageReference,
+  PageLinkReference,
+  PageResources,
+} from '../types.js';
 
 const EMPTY_RESOURCES: PageResources = {
   links: [],
   images: [],
+  forms: [],
+  embeds: [],
 };
 
 export function emptyPageResources(): PageResources {
   return {
     links: [],
     images: [],
+    forms: [],
+    embeds: [],
   };
 }
 
@@ -23,11 +34,18 @@ export function extractPageResources(html: string, baseUrl: string): PageResourc
   return {
     links: extractLinks(document, baseUrl),
     images: extractImages(document, baseUrl),
+    forms: extractForms(document, baseUrl),
+    embeds: extractEmbeds(document, baseUrl),
   };
 }
 
 export function appendPageResources(markdown: string, resources: PageResources): string {
-  if (resources.links.length === 0 && resources.images.length === 0) {
+  if (
+    resources.links.length === 0 &&
+    resources.images.length === 0 &&
+    resources.forms.length === 0 &&
+    resources.embeds.length === 0
+  ) {
     return markdown;
   }
 
@@ -56,6 +74,52 @@ export function appendPageResources(markdown: string, resources: PageResources):
       ...resources.images.map(
         (image) =>
           `| ${image.index} | ${escapeTableCell(image.context)} | ${escapeTableCell(image.label)} | ${escapeTableCell(image.url)} | ${escapeTableCell(image.linked_url ?? '')} |`,
+      ),
+      '',
+    );
+  }
+
+  if (resources.forms.length > 0) {
+    sections.push('### Forms', '');
+
+    for (const form of resources.forms) {
+      sections.push(
+        `#### ${form.index}. ${form.label}`,
+        '',
+        `- **Context:** ${form.context}`,
+        `- **Method:** ${form.method.toUpperCase()}`,
+        `- **Action:** ${form.action}`,
+      );
+
+      if (form.fields.length > 0) {
+        sections.push(
+          '',
+          '| Field | Type | Required | Label / Placeholder | Value / Options |',
+          '|---|---|---:|---|---|',
+          ...form.fields.map(
+            (field) =>
+              `| ${escapeTableCell(field.name ?? '')} | ${escapeTableCell(field.type)} | ${field.required ? 'yes' : ''} | ${escapeTableCell(field.label || field.placeholder || '')} | ${escapeTableCell(field.options?.join(', ') || field.value || '')} |`,
+          ),
+        );
+      }
+
+      if (form.buttons.length > 0) {
+        sections.push('', `- **Buttons:** ${form.buttons.map(escapeInline).join(', ')}`);
+      }
+
+      sections.push('');
+    }
+  }
+
+  if (resources.embeds.length > 0) {
+    sections.push(
+      '### Embeds',
+      '',
+      '| # | Context | Type | Label | URL | Size |',
+      '|---:|---|---|---|---|---|',
+      ...resources.embeds.map(
+        (embed) =>
+          `| ${embed.index} | ${escapeTableCell(embed.context)} | ${embed.type} | ${escapeTableCell(embed.label)} | ${escapeTableCell(embed.url)} | ${escapeTableCell([embed.width, embed.height].filter(Boolean).join('x'))} |`,
       ),
       '',
     );
@@ -183,6 +247,138 @@ function extractImages(document: Document, baseUrl: string): PageImageReference[
   }
 
   return images.map((image, index) => ({ ...image, index: index + 1 }));
+}
+
+function extractForms(document: Document, baseUrl: string): PageFormReference[] {
+  return Array.from(document.querySelectorAll('form')).map((form, index) => {
+    const action = form.getAttribute('action') || document.URL || baseUrl;
+    return {
+      index: index + 1,
+      context: contextFor(form),
+      label: labelForForm(form, index + 1),
+      action: absolutize(action, baseUrl),
+      method: normalizeText(form.getAttribute('method') || 'get').toLowerCase(),
+      fields: extractFormFields(form),
+      buttons: extractFormButtons(form),
+    };
+  });
+}
+
+function extractFormFields(form: Element): PageFormField[] {
+  const fields: PageFormField[] = [];
+
+  for (const field of Array.from(form.querySelectorAll('input, textarea, select'))) {
+    const tag = field.tagName.toLowerCase();
+    const inputType = normalizeText(field.getAttribute('type') || tag).toLowerCase();
+    if (inputType === 'submit' || inputType === 'button' || inputType === 'reset' || inputType === 'image') {
+      continue;
+    }
+
+    const name = normalizeText(field.getAttribute('name') || field.getAttribute('id') || '');
+    const type = tag === 'input' ? inputType : tag;
+    const options = tag === 'select' ? selectOptions(field) : undefined;
+
+    fields.push({
+      name: name || undefined,
+      type,
+      label: labelForField(field) || undefined,
+      required: field.hasAttribute('required') || undefined,
+      placeholder: normalizeText(field.getAttribute('placeholder') || '') || undefined,
+      value: normalizeText(field.getAttribute('value') || '') || undefined,
+      options: options && options.length > 0 ? options : undefined,
+    });
+  }
+
+  return fields;
+}
+
+function extractFormButtons(form: Element): string[] {
+  return Array.from(form.querySelectorAll('button, input[type="submit"], input[type="button"], input[type="reset"]'))
+    .map((button) =>
+      normalizeText(button.textContent || button.getAttribute('value') || button.getAttribute('aria-label') || ''),
+    )
+    .filter(Boolean);
+}
+
+function extractEmbeds(document: Document, baseUrl: string): PageEmbedReference[] {
+  const embeds: Omit<PageEmbedReference, 'index'>[] = [];
+  const seen = new Set<string>();
+
+  for (const element of Array.from(document.querySelectorAll('iframe[src], embed[src], object[data], video[src], audio[src], video source[src], audio source[src]'))) {
+    const type = embedType(element);
+    const rawUrl = element.getAttribute('src') || element.getAttribute('data');
+    if (!rawUrl) {
+      continue;
+    }
+
+    const url = absolutize(rawUrl, baseUrl);
+    if (shouldSkipUrl(url) || seen.has(`${type}\u0000${url}`)) {
+      continue;
+    }
+
+    seen.add(`${type}\u0000${url}`);
+    embeds.push({
+      context: contextFor(element),
+      label: labelForEmbed(element, type),
+      url,
+      type,
+      width: normalizeText(element.getAttribute('width') || '') || undefined,
+      height: normalizeText(element.getAttribute('height') || '') || undefined,
+    });
+  }
+
+  return embeds.map((embed, index) => ({ ...embed, index: index + 1 }));
+}
+
+function labelForForm(form: Element, index: number): string {
+  return (
+    normalizeText(form.getAttribute('aria-label') || '') ||
+    normalizeText(form.getAttribute('name') || form.getAttribute('id') || '') ||
+    `${contextFor(form)} form ${index}`
+  );
+}
+
+function labelForField(field: Element): string {
+  const id = field.getAttribute('id');
+  const document = field.ownerDocument;
+  const explicitLabel = id ? document.querySelector(`label[for="${cssEscape(id)}"]`) : undefined;
+  const wrappedLabel = field.closest('label');
+
+  return (
+    normalizeText(explicitLabel?.textContent ?? '') ||
+    normalizeText(wrappedLabel?.textContent ?? '') ||
+    normalizeText(field.getAttribute('aria-label') || field.getAttribute('title') || '') ||
+    normalizeText(field.getAttribute('placeholder') || '')
+  );
+}
+
+function selectOptions(select: Element): string[] {
+  return Array.from(select.querySelectorAll('option'))
+    .map((option) => normalizeText(option.textContent || option.getAttribute('value') || ''))
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function embedType(element: Element): PageEmbedReference['type'] {
+  const tagName = element.tagName.toLowerCase();
+  if (tagName === 'source') {
+    const parent = element.parentElement?.tagName.toLowerCase();
+    return parent === 'audio' ? 'audio' : 'video';
+  }
+
+  return tagName as PageEmbedReference['type'];
+}
+
+function labelForEmbed(element: Element, type: PageEmbedReference['type']): string {
+  return (
+    normalizeText(element.getAttribute('title') || element.getAttribute('aria-label') || '') ||
+    labelForElement(element) ||
+    `${type} embed`
+  );
+}
+
+function cssEscape(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 function imageCandidate(image: Element): { url: string; source: PageImageReference['source'] } | undefined {
@@ -398,4 +594,8 @@ function normalizeText(value: string): string {
 
 function escapeTableCell(value: string): string {
   return value.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+}
+
+function escapeInline(value: string): string {
+  return value.replace(/\n/g, ' ');
 }

@@ -10,6 +10,11 @@
       <a class="logo-link" href="/">
         <img class="site-logo" src="/logo.png" alt="Oscar's Frozen Custard logo">
       </a>
+      <form id="site-search" action="/search" method="get" aria-label="Site search">
+        <label for="q">Search</label>
+        <input id="q" name="q" type="search" required placeholder="Search menu">
+        <button type="submit">Search</button>
+      </form>
       <nav>
         <a href="/">Home</a>
         <a href="/menu/">Menu</a>
@@ -27,6 +32,21 @@
           <source media="(min-width: 800px)" srcset="/hero-small.jpg 800w, /hero-large.jpg 1600w">
           <img src="/hero-fallback.jpg" alt="Hero burger">
         </picture>
+        <iframe title="Location map" src="/map.html" width="600" height="400"></iframe>
+        <video controls src="/tour.mp4"></video>
+        <form action="/contact" method="post" aria-label="Contact form">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required>
+          <label>
+            Message
+            <textarea name="message" placeholder="How can we help?"></textarea>
+          </label>
+          <select name="topic">
+            <option>General question</option>
+            <option>Catering</option>
+          </select>
+          <button type="submit">Send</button>
+        </form>
       </article>
     </main>
     <footer>
