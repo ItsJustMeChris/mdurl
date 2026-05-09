@@ -1,5 +1,6 @@
 import { MdurlError } from '../errors.js';
 import type { FetchResult, PlainFetchOptions } from '../types.js';
+import { addConditionalHeaders, cachedResultFromNotModified, readCacheEntry, writeCacheEntry } from './cache.js';
 
 const MAX_RETRIES = 2;
 const RETRY_BASE_MS = 100;
@@ -40,12 +41,15 @@ export async function fetchPlain(url: string, options: PlainFetchOptions): Promi
 
     for (let redirects = 0; redirects <= options.maxRedirects; redirects += 1) {
       let response: Response;
+      const cached = await readCacheEntry(options.cacheDir, currentUrl);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
 
       try {
+        const headers = buildHeaders({ ...options, cookie: cookieHeader });
+        addConditionalHeaders(headers, cached);
         response = await fetch(currentUrl, {
-          headers: buildHeaders({ ...options, cookie: cookieHeader }),
+          headers,
           redirect: 'manual',
           signal: controller.signal,
         });
@@ -64,6 +68,10 @@ export async function fetchPlain(url: string, options: PlainFetchOptions): Promi
         });
       } finally {
         clearTimeout(timeout);
+      }
+
+      if (response.status === 304 && cached) {
+        return cachedResultFromNotModified(cached, currentUrl, originalUrl, redirectChain, start);
       }
 
       cookieHeader = mergeSetCookies(cookieHeader, getSetCookieHeaders(response.headers));
@@ -95,6 +103,10 @@ export async function fetchPlain(url: string, options: PlainFetchOptions): Promi
       if (shouldRetryStatus(result.status, attempt)) {
         break;
       }
+      if (options.cacheDir) {
+        result.cacheStatus = 'miss';
+      }
+      await writeCacheEntry(options.cacheDir, result);
       return result;
     }
 

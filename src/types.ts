@@ -45,6 +45,7 @@ export interface CliOptions {
   output?: string;
   quiet: boolean;
   getBrowserSession?: () => Promise<BrowserSession>;
+  cacheDir?: string;
 }
 
 export interface PlainFetchOptions {
@@ -55,6 +56,7 @@ export interface PlainFetchOptions {
   userAgent: string;
   maxRedirects: number;
   referer?: string;
+  cacheDir?: string;
 }
 
 export interface BrowserFetchOptions extends PlainFetchOptions {
@@ -77,6 +79,7 @@ export interface FetchResult {
   contentType?: string;
   html: string;
   body?: Uint8Array;
+  cacheStatus?: 'hit' | 'miss' | 'revalidated';
   redirectChain: string[];
   elapsedMs: number;
   renderMode: RenderMode;
@@ -224,6 +227,7 @@ export interface DocumentMetadata {
   content_kind?: ContentKind;
   byte_count?: number;
   page_count?: number;
+  cache_status?: 'hit' | 'miss' | 'revalidated';
   section?: string;
   section_found?: boolean;
   access_status?: AccessStatus;

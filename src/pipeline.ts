@@ -250,6 +250,10 @@ function buildMetadata(
     metadata.page_count = details.pageCount;
   }
 
+  if (result.cacheStatus) {
+    metadata.cache_status = result.cacheStatus;
+  }
+
   if (details.section) {
     metadata.section = details.section;
     metadata.section_found = Boolean(details.sectionFound);

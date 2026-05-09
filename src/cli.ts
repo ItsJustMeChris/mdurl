@@ -25,6 +25,7 @@ export function buildProgram(): Command {
     .option('--user-agent <str>', 'User-Agent header value', DEFAULT_USER_AGENT)
     .option('--max-redirects <n>', 'maximum redirects to follow', parseNonNegativeInteger, 5)
     .option('--referer <url>', 'Referer header value')
+    .option('--cache <dir>', 'enable on-disk HTTP cache in a directory')
     .option('--js', 'force headless browser rendering')
     .option('--no-js', 'disable automatic browser fallback')
     .option('--wait-selector <css>', 'wait for a selector before extracting in browser mode')
@@ -133,6 +134,7 @@ interface RawCommandOptions {
   userAgent: string;
   maxRedirects: number;
   referer?: string;
+  cache?: string;
   js?: boolean;
   waitSelector?: string;
   waitMs: number;
@@ -159,6 +161,7 @@ function normalizeOptions(raw: RawCommandOptions): CliOptions {
     userAgent: raw.userAgent,
     maxRedirects: raw.maxRedirects,
     referer: raw.referer,
+    cacheDir: raw.cache,
     jsMode: normalizeJsMode(raw),
     waitSelector: raw.waitSelector,
     waitMs: raw.waitMs,

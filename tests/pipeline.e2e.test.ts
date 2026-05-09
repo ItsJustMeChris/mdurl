@@ -2,6 +2,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { createServer, type Server } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { readFileSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { formatResult, runPipeline } from '../src/pipeline.js';
 import type { CliOptions } from '../src/types.js';
@@ -29,6 +31,7 @@ describe('pipeline e2e', () => {
   let baseUrl: string;
   let flakyHits = 0;
   let slowHits = 0;
+  let cacheHits = 0;
 
   beforeAll(async () => {
     server = createServer((request, response) => {
@@ -93,6 +96,23 @@ describe('pipeline e2e', () => {
 
         response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         response.end('<!doctype html><html><body><main><h1>Authorized</h1></main></body></html>');
+        return;
+      }
+
+      if (request.url === '/cached') {
+        cacheHits += 1;
+        if (request.headers['if-none-match'] === '"mdurl-fixture"') {
+          response.writeHead(304, { etag: '"mdurl-fixture"', 'last-modified': 'Sat, 09 May 2026 12:00:00 GMT' });
+          response.end();
+          return;
+        }
+
+        response.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          etag: '"mdurl-fixture"',
+          'last-modified': 'Sat, 09 May 2026 12:00:00 GMT',
+        });
+        response.end('<!doctype html><html><body><main><h1>Cached Page</h1><p>Cached body.</p></main></body></html>');
         return;
       }
 
@@ -396,6 +416,25 @@ describe('pipeline e2e', () => {
 
     expect(result.ok).toBe(true);
     expect(result.markdown).toContain('# Authorized');
+  });
+
+  it('revalidates cached HTTP responses with conditional headers', async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), 'mdurl-cache-'));
+    cacheHits = 0;
+
+    try {
+      const first = await runPipeline(`${baseUrl}/cached`, { ...baseOptions, cacheDir });
+      const second = await runPipeline(`${baseUrl}/cached`, { ...baseOptions, cacheDir });
+
+      expect(first.ok).toBe(true);
+      expect(first.metadata.cache_status).toBe('miss');
+      expect(second.ok).toBe(true);
+      expect(second.metadata.cache_status).toBe('revalidated');
+      expect(second.markdown).toContain('# Cached Page');
+      expect(cacheHits).toBe(2);
+    } finally {
+      await rm(cacheDir, { recursive: true, force: true });
+    }
   });
 
   it('truncates markdown with an explicit marker', async () => {
