@@ -42,7 +42,7 @@ When multiple URLs are provided, markdown/frontmatter outputs are concatenated w
 
 ### Fetching
 
-Plain HTTP fetches retry transient `429`/`5xx` responses and request timeouts with short backoff. Manual redirects preserve `Set-Cookie` values for the next hop. `--cache <dir>` enables an on-disk cache that stores successful HTTP responses and revalidates with `If-None-Match` / `If-Modified-Since` when possible.
+Plain HTTP fetches retry transient `429`/`5xx` responses and request timeouts with short backoff. Manual redirects preserve `Set-Cookie` values for the next hop. `--cache <dir>` enables an on-disk cache that stores successful HTTP responses and revalidates with `If-None-Match` / `If-Modified-Since` when possible. `--archive-fallback` tries the latest Wayback Machine snapshot after a 4xx response.
 
 | Flag | Default | Description |
 |---|---:|---|
@@ -54,6 +54,7 @@ Plain HTTP fetches retry transient `429`/`5xx` responses and request timeouts wi
 | `--max-redirects <n>` | `5` | Redirect limit. |
 | `--referer <url>` | | Referer header. |
 | `--cache <dir>` | | Enable on-disk HTTP cache in a directory. |
+| `--archive-fallback` | | Try the latest Wayback Machine snapshot after a 4xx response. |
 
 ### Rendering
 

@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { MdurlError, normalizeError } from './errors.js';
+import { fetchArchiveSnapshot } from './fetch/archive.js';
 import { detectSpa } from './fetch/detectSpa.js';
 import { fetchBrowser } from './fetch/browser.js';
 import { fetchPlain } from './fetch/plain.js';
@@ -19,8 +20,16 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
   const fetchedAt = new Date().toISOString();
 
   try {
-    const result = await fetchWithRendering(url, options);
-    const accessStatus = detectAccessStatus(result.html, result.status);
+    let result = await fetchWithRendering(url, options);
+    let accessStatus = detectAccessStatus(result.html, result.status);
+
+    if (options.archiveFallback && result.status >= 400 && result.status < 500) {
+      const archived = await fetchArchiveSnapshot(result.url, options);
+      if (archived && archived.status >= 200 && archived.status < 300) {
+        result = archived;
+        accessStatus = detectAccessStatus(result.html, result.status);
+      }
+    }
 
     if (result.status < 200 || result.status >= 300) {
       const message = `HTTP ${result.status} ${result.statusText}`.trim();
@@ -220,6 +229,10 @@ function buildMetadata(
 
   if (result.originalUrl !== result.url) {
     metadata.original_url = result.originalUrl;
+  }
+
+  if (result.headers['x-mdurl-archived-url']) {
+    metadata.archived_url = result.headers['x-mdurl-archived-url'];
   }
 
   if (details.title) {

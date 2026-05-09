@@ -46,6 +46,8 @@ export interface CliOptions {
   quiet: boolean;
   getBrowserSession?: () => Promise<BrowserSession>;
   cacheDir?: string;
+  archiveFallback: boolean;
+  archiveBaseUrl?: string;
 }
 
 export interface PlainFetchOptions {
@@ -57,6 +59,8 @@ export interface PlainFetchOptions {
   maxRedirects: number;
   referer?: string;
   cacheDir?: string;
+  archiveFallback?: boolean;
+  archiveBaseUrl?: string;
 }
 
 export interface BrowserFetchOptions extends PlainFetchOptions {
@@ -214,6 +218,7 @@ export interface MarkdownResult {
 export interface DocumentMetadata {
   url: string;
   original_url?: string;
+  archived_url?: string;
   title?: string;
   description?: string;
   site_name?: string;

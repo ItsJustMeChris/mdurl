@@ -15,6 +15,7 @@ const baseOptions: CliOptions = {
   headers: [],
   userAgent: 'mdurl-test',
   maxRedirects: 5,
+  archiveFallback: false,
   jsMode: 'disabled',
   waitMs: 0,
   full: false,
@@ -125,6 +126,27 @@ describe('pipeline e2e', () => {
       if (request.url === '/missing') {
         response.writeHead(500, { 'content-type': 'text/html' });
         response.end('<h1>Failure</h1>');
+        return;
+      }
+
+      if (request.url === '/gone') {
+        response.writeHead(404, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<h1>Gone</h1>');
+        return;
+      }
+
+      if (request.url?.startsWith('/cdx?')) {
+        response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify([
+          ['timestamp', 'original', 'statuscode', 'mimetype'],
+          ['20260509120000', `${baseUrl}/gone`, '200', 'text/html'],
+        ]));
+        return;
+      }
+
+      if (request.url?.startsWith('/web/20260509120000id_/')) {
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<!doctype html><html><body><main><h1>Archived Copy</h1><p>From Wayback.</p></main></body></html>');
         return;
       }
 
@@ -345,6 +367,19 @@ describe('pipeline e2e', () => {
     expect(result.exitCode).toBe(1);
     expect(output).toContain('status: 500');
     expect(output).toContain('error: HTTP 500');
+  });
+
+  it('can fall back to an archived snapshot for 4xx pages', async () => {
+    const result = await runPipeline(`${baseUrl}/gone`, {
+      ...baseOptions,
+      archiveFallback: true,
+      archiveBaseUrl: baseUrl,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.metadata.original_url).toBe(`${baseUrl}/gone`);
+    expect(result.metadata.archived_url).toContain('/web/20260509120000id_/');
+    expect(result.markdown).toContain('# Archived Copy');
   });
 
   it('does not browser-render non-2xx SPA-shaped errors in auto mode', async () => {
