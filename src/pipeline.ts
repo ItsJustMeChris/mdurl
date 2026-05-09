@@ -110,6 +110,10 @@ async function fetchWithRendering(url: string, options: CliOptions): Promise<Fet
 
   const plain = await fetchPlain(url, options);
 
+  if (plain.status < 200 || plain.status >= 300) {
+    return plain;
+  }
+
   if (options.jsMode === 'disabled') {
     return plain;
   }

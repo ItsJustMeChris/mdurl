@@ -48,6 +48,12 @@ describe('pipeline e2e', () => {
         return;
       }
 
+      if (request.url === '/spa-error') {
+        response.writeHead(500, { 'content-type': 'text/html' });
+        response.end(readFileSync(join(fixtures, 'spa-shell.html'), 'utf8'));
+        return;
+      }
+
       if (request.url === '/spa') {
         response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         response.end(readFileSync(join(fixtures, 'spa-shell.html'), 'utf8'));
@@ -121,6 +127,16 @@ describe('pipeline e2e', () => {
     expect(result.exitCode).toBe(1);
     expect(output).toContain('status: 500');
     expect(output).toContain('error: HTTP 500');
+  });
+
+  it('does not browser-render non-2xx SPA-shaped errors in auto mode', async () => {
+    const result = await runPipeline(`${baseUrl}/spa-error`, { ...baseOptions, jsMode: 'auto' });
+
+    expect(result.ok).toBe(false);
+    expect(result.exitCode).toBe(1);
+    expect(result.metadata.status).toBe(500);
+    expect(result.metadata.render_mode).toBe('http');
+    expect(result.metadata.error).toContain('HTTP 500');
   });
 
   it('tracks redirect chains', async () => {
