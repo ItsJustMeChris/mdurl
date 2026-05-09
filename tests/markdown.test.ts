@@ -66,4 +66,18 @@ describe('htmlToMarkdown', () => {
     expect(result.markdown).toContain('```js\nconst response = await fetch("/api");');
     expect(result.markdown).not.toContain('\njs\n\n```');
   });
+
+  it('preserves code block languages from classes and syntax highlighter spans', () => {
+    const result = htmlToMarkdown(
+      `
+        <pre><code class="language-ts"><span>const value: string = "typed";</span></code></pre>
+        <pre class="highlight-source-shell"><code>npm test</code></pre>
+      `,
+      'https://example.com/',
+      { includeLinks: false },
+    );
+
+    expect(result.markdown).toContain('```ts\nconst value: string = "typed";');
+    expect(result.markdown).toContain('```sh\nnpm test');
+  });
 });

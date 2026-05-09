@@ -19,6 +19,10 @@ export function htmlToMarkdown(
 
   turndown.use(gfm);
   turndown.remove(['script', 'style', 'template']);
+  turndown.addRule('fencedCodeWithLanguage', {
+    filter: (node) => isLanguageCodeBlock(node as Element),
+    replacement: (_content, node) => codeBlockToMarkdown(node as Element),
+  });
   turndown.addRule('stripEmptyLinks', {
     filter: (node) => node.nodeName === 'A' && !(node.textContent ?? '').trim(),
     replacement: () => '',
@@ -109,6 +113,64 @@ function normalizeLanguageLabel(language: string): string | undefined {
   const aliased = aliases[normalized] ?? normalized;
 
   return allowed.has(aliased) ? aliased : undefined;
+}
+
+function isLanguageCodeBlock(node: Element): boolean {
+  if (node.nodeName !== 'PRE') {
+    return false;
+  }
+
+  return Boolean(codeLanguage(node));
+}
+
+function codeBlockToMarkdown(node: Element): string {
+  const language = codeLanguage(node);
+  const code = (node.querySelector('code') ?? node).textContent?.replace(/\n$/, '') ?? '';
+  const fence = codeFenceFor(code);
+
+  return `\n\n${fence}${language}\n${code}\n${fence}\n\n`;
+}
+
+function codeLanguage(pre: Element): string | undefined {
+  const code = pre.querySelector('code');
+  const candidates = [
+    code?.getAttribute('data-language'),
+    code?.getAttribute('lang'),
+    code?.getAttribute('class'),
+    pre.getAttribute('data-language'),
+    pre.getAttribute('lang'),
+    pre.getAttribute('class'),
+  ];
+
+  for (const candidate of candidates) {
+    const language = languageFromAttribute(candidate);
+    if (language) {
+      return language;
+    }
+  }
+
+  return undefined;
+}
+
+function languageFromAttribute(value: string | null | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const direct = normalizeLanguageLabel(value);
+  if (direct) {
+    return direct;
+  }
+
+  const match = value.match(
+    /(?:^|\s)(?:language-|lang-|brush:\s*|highlight-source-|sourceCode\s+|shiki\s+language-)([A-Za-z][\w#+.-]{0,30})/i,
+  );
+  return match ? normalizeLanguageLabel(match[1]) : undefined;
+}
+
+function codeFenceFor(code: string): string {
+  const longest = Math.max(2, ...Array.from(code.matchAll(/`+/g), (match) => match[0].length));
+  return '`'.repeat(longest + 1);
 }
 
 function isRowHeaderTable(node: Element): boolean {
