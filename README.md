@@ -87,6 +87,7 @@ HTML pages use Readability plus a cleaned full-page resource inventory. Non-HTML
 |---|---|
 | PDF | Extracted page text, PDF title when available, `content_kind: pdf`, `page_count`, and `byte_count`. |
 | RSS/Atom | Feed title, description, site link, and recent entries as markdown. |
+| Sitemap XML | URL lists with last-modified dates when present. |
 | JSON | Pretty-printed fenced `json` block. |
 | XML | Fenced `xml` block unless it is recognized as a feed. |
 | Plain text | Text body with source metadata. |

@@ -163,6 +163,21 @@ describe('pipeline e2e', () => {
         return;
       }
 
+      if (request.url === '/sitemap.xml') {
+        response.writeHead(200, { 'content-type': 'application/xml; charset=utf-8' });
+        response.end(`<?xml version="1.0"?>
+          <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+            <url>
+              <loc>${baseUrl}/docs</loc>
+              <lastmod>2026-05-09</lastmod>
+            </url>
+            <url>
+              <loc>${baseUrl}/docs/install</loc>
+            </url>
+          </urlset>`);
+        return;
+      }
+
       if (request.url === '/data.json') {
         response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
         response.end(JSON.stringify({ name: 'Fixture API', items: [{ id: 1, label: 'Alpha' }] }));
@@ -253,6 +268,16 @@ describe('pipeline e2e', () => {
     expect(result.markdown).toContain('## Entries');
     expect(result.markdown).toContain(`### [First entry](${baseUrl}/first)`);
     expect(result.markdown).toContain('Feed item & body.');
+  });
+
+  it('renders XML sitemaps as URL lists', async () => {
+    const result = await runPipeline(`${baseUrl}/sitemap.xml`, baseOptions);
+
+    expect(result.ok).toBe(true);
+    expect(result.metadata.content_kind).toBe('sitemap');
+    expect(result.markdown).toContain('# Sitemap');
+    expect(result.markdown).toContain(`- ${baseUrl}/docs (last modified: 2026-05-09)`);
+    expect(result.markdown).toContain(`- ${baseUrl}/docs/install`);
   });
 
   it('renders JSON, plain text, and image resources without HTML extraction', async () => {

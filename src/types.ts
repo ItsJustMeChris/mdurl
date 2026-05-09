@@ -2,7 +2,17 @@ export type RenderMode = 'http' | 'js';
 
 export type JsMode = 'auto' | 'force' | 'disabled';
 
-export type ContentKind = 'html' | 'pdf' | 'feed' | 'json' | 'xml' | 'text' | 'image' | 'media' | 'binary';
+export type ContentKind =
+  | 'html'
+  | 'pdf'
+  | 'feed'
+  | 'sitemap'
+  | 'json'
+  | 'xml'
+  | 'text'
+  | 'image'
+  | 'media'
+  | 'binary';
 
 export type AccessStatus = 'bot_challenge' | 'paywall' | 'login_wall';
 

@@ -65,6 +65,8 @@ export async function convertNonHtml(result: FetchResult, contentKind: ContentKi
       return convertPdf(result);
     case 'feed':
       return convertXmlOrFeed(result, true);
+    case 'sitemap':
+      return convertXmlOrFeed(result, false);
     case 'json':
       return convertJson(result);
     case 'xml':
@@ -143,6 +145,11 @@ function convertXmlOrFeed(result: FetchResult, forceFeed: boolean): ConvertedNon
     if (feed) {
       return renderFeed(result, feed);
     }
+
+    const sitemap = sitemapFromParsedXml(parsed);
+    if (sitemap) {
+      return renderSitemap(result, sitemap);
+    }
   } catch {
     // Fall through to generic XML rendering below.
   }
@@ -214,6 +221,16 @@ interface ParsedFeed {
   entries: FeedEntry[];
 }
 
+interface SitemapEntry {
+  url: string;
+  lastModified?: string;
+}
+
+interface ParsedSitemap {
+  type: 'urlset' | 'sitemapindex';
+  entries: SitemapEntry[];
+}
+
 function feedFromParsedXml(parsed: Record<string, unknown>): ParsedFeed | undefined {
   const rss = objectValue(parsed.rss);
   const channel = objectValue(rss?.channel);
@@ -248,6 +265,38 @@ function feedFromParsedXml(parsed: Record<string, unknown>): ParsedFeed | undefi
   }
 
   return undefined;
+}
+
+function sitemapFromParsedXml(parsed: Record<string, unknown>): ParsedSitemap | undefined {
+  const urlset = objectValue(parsed.urlset);
+  if (urlset) {
+    const entries = arrayValue(urlset.url)
+      .map(sitemapEntryFromXml)
+      .filter((entry): entry is SitemapEntry => Boolean(entry));
+    return entries.length > 0 ? { type: 'urlset', entries } : undefined;
+  }
+
+  const sitemapindex = objectValue(parsed.sitemapindex);
+  if (sitemapindex) {
+    const entries = arrayValue(sitemapindex.sitemap)
+      .map(sitemapEntryFromXml)
+      .filter((entry): entry is SitemapEntry => Boolean(entry));
+    return entries.length > 0 ? { type: 'sitemapindex', entries } : undefined;
+  }
+
+  return undefined;
+}
+
+function sitemapEntryFromXml(entry: Record<string, unknown>): SitemapEntry | undefined {
+  const url = stringValue(entry.loc);
+  if (!url) {
+    return undefined;
+  }
+
+  return {
+    url,
+    lastModified: stringValue(entry.lastmod),
+  };
 }
 
 function renderFeed(result: FetchResult, feed: ParsedFeed): ConvertedNonHtml {
@@ -285,6 +334,21 @@ function renderFeed(result: FetchResult, feed: ParsedFeed): ConvertedNonHtml {
 
   return {
     contentKind: 'feed',
+    title,
+    markdown: `${sections.join('\n').trimEnd()}\n`,
+  };
+}
+
+function renderSitemap(result: FetchResult, sitemap: ParsedSitemap): ConvertedNonHtml {
+  const title = sitemap.type === 'sitemapindex' ? 'Sitemap Index' : 'Sitemap';
+  const sections = [`# ${title}`, '', `- Source: ${result.url}`, `- URLs: ${sitemap.entries.length}`, '', '## URLs'];
+
+  for (const entry of sitemap.entries.slice(0, 500)) {
+    sections.push('', `- ${entry.url}${entry.lastModified ? ` (last modified: ${entry.lastModified})` : ''}`);
+  }
+
+  return {
+    contentKind: 'sitemap',
     title,
     markdown: `${sections.join('\n').trimEnd()}\n`,
   };
