@@ -84,6 +84,18 @@ describe('pipeline e2e', () => {
         return;
       }
 
+      if (request.url === '/bearer') {
+        if (request.headers.authorization !== 'Bearer test-token') {
+          response.writeHead(401, { 'content-type': 'text/html; charset=utf-8' });
+          response.end('<h1>Unauthorized</h1>');
+          return;
+        }
+
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<!doctype html><html><body><main><h1>Authorized</h1></main></body></html>');
+        return;
+      }
+
       if (request.url === '/redirects/final') {
         response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         response.end(readFileSync(join(fixtures, 'redirects/final.html'), 'utf8'));
@@ -350,6 +362,13 @@ describe('pipeline e2e', () => {
     expect(result.ok).toBe(true);
     expect(slowHits).toBe(2);
     expect(result.markdown).toContain('# Recovered From Timeout');
+  });
+
+  it('sends bearer tokens as authorization headers', async () => {
+    const result = await runPipeline(`${baseUrl}/bearer`, { ...baseOptions, bearer: 'test-token' });
+
+    expect(result.ok).toBe(true);
+    expect(result.markdown).toContain('# Authorized');
   });
 
   it('truncates markdown with an explicit marker', async () => {

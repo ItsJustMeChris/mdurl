@@ -15,6 +15,7 @@ export interface CliOptions {
   timeoutMs: number;
   headers: HeaderPair[];
   cookie?: string;
+  bearer?: string;
   userAgent: string;
   maxRedirects: number;
   referer?: string;
@@ -39,6 +40,7 @@ export interface PlainFetchOptions {
   timeoutMs: number;
   headers: HeaderPair[];
   cookie?: string;
+  bearer?: string;
   userAgent: string;
   maxRedirects: number;
   referer?: string;

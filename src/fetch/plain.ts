@@ -13,6 +13,10 @@ export function buildHeaders(options: PlainFetchOptions): Headers {
     headers.set('cookie', options.cookie);
   }
 
+  if (options.bearer) {
+    headers.set('authorization', `Bearer ${options.bearer}`);
+  }
+
   if (options.referer) {
     headers.set('referer', options.referer);
   }

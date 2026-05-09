@@ -46,6 +46,7 @@ Plain HTTP fetches retry transient `429`/`5xx` responses and request timeouts wi
 | `--timeout <ms>` | `30000` | Request timeout. |
 | `-H, --header <k:v>` | | Extra request header; repeatable. |
 | `--cookie <str>` | | Single `Cookie` header value. |
+| `--bearer <token>` | | Bearer token for the `Authorization` header. |
 | `--user-agent <str>` | modern Chrome UA | User-Agent header. |
 | `--max-redirects <n>` | `5` | Redirect limit. |
 | `--referer <url>` | | Referer header. |

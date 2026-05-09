@@ -19,6 +19,7 @@ export function buildProgram(): Command {
     .option('--timeout <ms>', 'request timeout in milliseconds', parsePositiveInteger, 30_000)
     .option('-H, --header <k:v>', 'extra request header; repeatable', collectHeader, [])
     .option('--cookie <str>', 'Cookie header value')
+    .option('--bearer <token>', 'Bearer token for the Authorization header')
     .option('--user-agent <str>', 'User-Agent header value', DEFAULT_USER_AGENT)
     .option('--max-redirects <n>', 'maximum redirects to follow', parseNonNegativeInteger, 5)
     .option('--referer <url>', 'Referer header value')
@@ -86,6 +87,7 @@ interface RawCommandOptions {
   timeout: number;
   header: HeaderPair[];
   cookie?: string;
+  bearer?: string;
   userAgent: string;
   maxRedirects: number;
   referer?: string;
@@ -111,6 +113,7 @@ function normalizeOptions(raw: RawCommandOptions): CliOptions {
     timeoutMs: raw.timeout,
     headers: raw.header ?? [],
     cookie: raw.cookie,
+    bearer: raw.bearer,
     userAgent: raw.userAgent,
     maxRedirects: raw.maxRedirects,
     referer: raw.referer,
