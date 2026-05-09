@@ -38,7 +38,7 @@ mdurl --version
 mdurl --help
 ```
 
-When multiple URLs are provided, markdown/frontmatter outputs are concatenated with `<!-- mdurl-next-url -->` separators. With `--json`, output is a JSON array of envelopes.
+When multiple URLs are provided, markdown/frontmatter outputs are concatenated with `<!-- mdurl-next-url -->` separators. With `--json`, output is a JSON array of envelopes. In browser mode, batched URLs reuse one Chromium session.
 
 ### Fetching
 

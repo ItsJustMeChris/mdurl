@@ -44,6 +44,7 @@ export interface CliOptions {
   frontmatter: boolean;
   output?: string;
   quiet: boolean;
+  getBrowserSession?: () => Promise<BrowserSession>;
 }
 
 export interface PlainFetchOptions {
@@ -60,6 +61,11 @@ export interface BrowserFetchOptions extends PlainFetchOptions {
   waitSelector?: string;
   waitMs: number;
   browserPath?: string;
+}
+
+export interface BrowserSession {
+  fetch(url: string, options: BrowserFetchOptions): Promise<FetchResult>;
+  close(): Promise<void>;
 }
 
 export interface FetchResult {

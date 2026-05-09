@@ -154,7 +154,7 @@ export async function writeResult(output: string, options: CliOptions): Promise<
 
 async function fetchWithRendering(url: string, options: CliOptions): Promise<FetchResult> {
   if (options.jsMode === 'force') {
-    return fetchBrowser(url, options);
+    return fetchWithBrowser(url, options);
   }
 
   const plain = await fetchPlain(url, options);
@@ -181,7 +181,12 @@ async function fetchWithRendering(url: string, options: CliOptions): Promise<Fet
     process.stderr.write(`mdurl: SPA shell detected (${detection.reasons.join('; ')}); rendering with browser\n`);
   }
 
-  return fetchBrowser(plain.url, options);
+  return fetchWithBrowser(plain.url, options);
+}
+
+async function fetchWithBrowser(url: string, options: CliOptions): Promise<FetchResult> {
+  const session = options.getBrowserSession ? await options.getBrowserSession() : undefined;
+  return session ? session.fetch(url, options) : fetchBrowser(url, options);
 }
 
 function buildMetadata(

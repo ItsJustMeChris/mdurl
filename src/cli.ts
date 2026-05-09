@@ -1,10 +1,11 @@
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Command, InvalidArgumentError } from 'commander';
+import { createBrowserSession } from './fetch/browser.js';
 import { installBrowser } from './installBrowser.js';
 import { formatResult, runPipeline, writeResult } from './pipeline.js';
 import { jsonEnvelopeObject } from './output/envelope.js';
-import type { CliOptions, HeaderPair, JsMode, PipelineResult } from './types.js';
+import type { BrowserSession, CliOptions, HeaderPair, JsMode, PipelineResult } from './types.js';
 
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 mdurl/0.1.0';
@@ -27,7 +28,7 @@ export function buildProgram(): Command {
     .option('--js', 'force headless browser rendering')
     .option('--no-js', 'disable automatic browser fallback')
     .option('--wait-selector <css>', 'wait for a selector before extracting in browser mode')
-    .option('--wait-ms <n>', 'extra settle delay after browser networkidle', parseNonNegativeInteger, 0)
+    .option('--wait-ms <n>', 'extra settle delay after browser rendering', parseNonNegativeInteger, 0)
     .option('--browser-path <path>', 'Chrome/Chromium executable path')
     .option('--full', 'skip Readability and keep cleaned full body')
     .option('--selector <css>', 'extract only a matching element subtree')
@@ -47,10 +48,23 @@ export function buildProgram(): Command {
       }
 
       const options = normalizeOptions(rawOptions);
+      let browserSession: BrowserSession | undefined;
+
+      if (urls.length > 1 && options.jsMode !== 'disabled') {
+        options.getBrowserSession = async () => {
+          browserSession ??= await createBrowserSession(options);
+          return browserSession;
+        };
+      }
+
       const results: PipelineResult[] = [];
 
-      for (const url of urls) {
-        results.push(await runPipeline(url, options));
+      try {
+        for (const url of urls) {
+          results.push(await runPipeline(url, options));
+        }
+      } finally {
+        await browserSession?.close();
       }
 
       const output = formatCliResults(results, options);

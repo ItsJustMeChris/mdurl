@@ -441,6 +441,7 @@ function mockPlaywright(html: string, finalUrl: string): void {
             url: vi.fn(() => finalUrl),
             waitForLoadState: vi.fn(async () => undefined),
             waitForTimeout: vi.fn(),
+            close: vi.fn(async () => undefined),
           })),
           close: vi.fn(),
         })),
