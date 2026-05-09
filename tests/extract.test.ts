@@ -56,4 +56,32 @@ describe('extractContent', () => {
     expect(extracted.html).toContain('<h1>Using the Fetch API - Web APIs</h1>');
     expect(extracted.html).toContain('<h2>Making a request</h2>');
   });
+
+  it('strips short cookie consent banners from cleaned content', () => {
+    const html = `
+      <!doctype html>
+      <html>
+        <head><title>Article</title></head>
+        <body>
+          <main>
+            <article>
+              <h1>Article</h1>
+              <p>Main content remains.</p>
+            </article>
+            <div id="cookie-consent-banner">
+              We use cookies to improve this site.
+              <button>Accept all</button>
+              <button>Manage preferences</button>
+            </div>
+          </main>
+        </body>
+      </html>
+    `;
+
+    const extracted = extractContent(html, 'https://example.com/article', { full: true });
+
+    expect(extracted.textContent).toContain('Main content remains.');
+    expect(extracted.textContent).not.toContain('Accept all');
+    expect(extracted.textContent).not.toContain('Manage preferences');
+  });
 });

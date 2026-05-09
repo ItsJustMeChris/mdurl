@@ -26,6 +26,8 @@ export function cleanHtml(html: string, baseUrl: string, selector?: string): { h
 
   const root = scoped.cloneNode(true) as HTMLElement;
 
+  removeCookieConsent(root);
+
   for (const node of Array.from(root.querySelectorAll(REMOVE_SELECTORS.join(',')))) {
     node.remove();
   }
@@ -38,6 +40,33 @@ export function cleanHtml(html: string, baseUrl: string, selector?: string): { h
     title: document.querySelector('title')?.textContent?.trim() || undefined,
     lang: document.documentElement.getAttribute('lang') || undefined,
   };
+}
+
+function removeCookieConsent(root: ParentNode): void {
+  const candidates = Array.from(root.querySelectorAll('div, section, aside, dialog, form, footer'));
+
+  for (const element of candidates) {
+    const signature = normalizeText(
+      [
+        element.getAttribute('id'),
+        element.getAttribute('class'),
+        element.getAttribute('role'),
+        element.getAttribute('aria-label'),
+      ].join(' '),
+    );
+    const text = normalizeText(element.textContent ?? '');
+
+    if (text.length > 1500) {
+      continue;
+    }
+
+    const mentionsConsent = /\b(cookie|cookies|consent|privacy|gdpr|onetrust|cookiebot)\b/i.test(`${signature} ${text}`);
+    const hasAction = /\b(accept|agree|allow|reject|decline|manage|preferences|settings)\b/i.test(text);
+
+    if (mentionsConsent && hasAction) {
+      element.remove();
+    }
+  }
 }
 
 export function normalizeResourceUrls(root: ParentNode, baseUrl: string): void {
@@ -66,4 +95,8 @@ function absolutize(value: string, baseUrl: string): string {
   } catch {
     return value;
   }
+}
+
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim().toLowerCase();
 }
