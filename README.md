@@ -97,7 +97,7 @@ Example:
 2. Mix ingredients and bake.
 ```
 
-By default, `mdurl` appends a `## Page Resources` section built from the full fetched page, even when the main markdown body is extracted with Readability. This section includes navigation/header/footer links, linked images, logos, favicons, Open Graph images, and other image URLs that are useful for agents that need to follow the page or retrieve assets.
+By default, `mdurl` appends a `## Page Resources` section built from the full fetched page, even when the main markdown body is extracted with Readability. This section includes navigation/header/footer links, linked images, logos, favicons, Open Graph images, lazy-loaded `data-src`/`data-srcset` images, responsive `<picture>` sources, and other image URLs that are useful for agents that need to follow the page or retrieve assets.
 
 Example:
 

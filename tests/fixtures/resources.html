@@ -21,6 +21,12 @@
         <h1>Menu</h1>
         <p>Menu content.</p>
         <img src="/burger.jpg" alt="Oscar Burger">
+        <img src="/placeholder.gif" data-src="/lazy-burger.jpg" alt="Lazy burger">
+        <img data-srcset="/small.jpg 320w, /large.jpg 1200w" alt="Responsive lazy burger">
+        <picture>
+          <source media="(min-width: 800px)" srcset="/hero-small.jpg 800w, /hero-large.jpg 1600w">
+          <img src="/hero-fallback.jpg" alt="Hero burger">
+        </picture>
       </article>
     </main>
     <footer>

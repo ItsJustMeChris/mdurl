@@ -86,7 +86,7 @@ export interface PageImageReference {
   label: string;
   url: string;
   linked_url?: string;
-  source: 'img' | 'srcset' | 'icon' | 'meta' | 'style';
+  source: 'img' | 'srcset' | 'data' | 'source' | 'icon' | 'meta' | 'style';
 }
 
 export interface PageResources {

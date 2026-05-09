@@ -103,40 +103,60 @@ function extractImages(document: Document, baseUrl: string): PageImageReference[
   const seen = new Set<string>();
 
   for (const image of Array.from(document.querySelectorAll('img'))) {
-    const src = image.getAttribute('src') || firstSrcsetUrl(image.getAttribute('srcset'));
-    if (!src) {
+    const candidate = imageCandidate(image);
+    if (!candidate) {
       continue;
     }
 
     pushImage(images, seen, {
       element: image,
-      url: src,
+      url: candidate.url,
       baseUrl,
-      source: image.getAttribute('src') ? 'img' : 'srcset',
+      source: candidate.source,
       label: labelForImage(image),
       linkedUrl: closestLinkUrl(image, baseUrl),
     });
   }
 
+  for (const source of Array.from(document.querySelectorAll('picture source, source[type^="image/"]'))) {
+    const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
+    const url = bestSrcsetUrl(srcset);
+    if (!url) {
+      continue;
+    }
+
+    const picture = source.closest('picture');
+    const image = picture?.querySelector('img');
+    pushImage(images, seen, {
+      element: source,
+      url,
+      baseUrl,
+      source: source.getAttribute('srcset') ? 'source' : 'data',
+      label: image ? labelForImage(image) : labelForElement(source) || 'picture source',
+      linkedUrl: image ? closestLinkUrl(image, baseUrl) : undefined,
+    });
+  }
+
   for (const link of Array.from(document.querySelectorAll('link[href]'))) {
     const rel = normalizeText(link.getAttribute('rel') ?? '');
-    if (!/\b(icon|apple-touch-icon|mask-icon)\b/i.test(rel)) {
+    const as = normalizeText(link.getAttribute('as') ?? '');
+    if (!/\b(icon|apple-touch-icon|mask-icon)\b/i.test(rel) && !(rel === 'preload' && as === 'image')) {
       continue;
     }
 
     pushImage(images, seen, {
       element: link,
-      url: link.getAttribute('href') ?? '',
+      url: link.getAttribute('href') || bestSrcsetUrl(link.getAttribute('imagesrcset')) || '',
       baseUrl,
       source: 'icon',
-      label: rel || 'site icon',
+      label: rel === 'preload' ? 'preloaded image' : rel || 'site icon',
       context: 'metadata',
     });
   }
 
   for (const meta of Array.from(document.querySelectorAll('meta[content]'))) {
     const name = normalizeText(meta.getAttribute('property') || meta.getAttribute('name') || '');
-    if (!/^(og:image|twitter:image|twitter:image:src)$/i.test(name)) {
+    if (!/^(og:image|twitter:image|twitter:image:src|image|thumbnail|thumbnailurl|msapplication-.*logo)$/i.test(name)) {
       continue;
     }
 
@@ -163,6 +183,34 @@ function extractImages(document: Document, baseUrl: string): PageImageReference[
   }
 
   return images.map((image, index) => ({ ...image, index: index + 1 }));
+}
+
+function imageCandidate(image: Element): { url: string; source: PageImageReference['source'] } | undefined {
+  for (const attribute of ['data-src', 'data-lazy-src', 'data-original', 'data-original-src', 'data-pin-media']) {
+    const value = image.getAttribute(attribute);
+    if (value) {
+      return { url: value, source: 'data' };
+    }
+  }
+
+  for (const attribute of ['data-srcset', 'data-lazy-srcset']) {
+    const value = bestSrcsetUrl(image.getAttribute(attribute));
+    if (value) {
+      return { url: value, source: 'data' };
+    }
+  }
+
+  const src = image.getAttribute('src');
+  if (src && !isPlaceholderImage(src)) {
+    return { url: src, source: 'img' };
+  }
+
+  const srcset = bestSrcsetUrl(image.getAttribute('srcset'));
+  if (srcset) {
+    return { url: srcset, source: 'srcset' };
+  }
+
+  return undefined;
 }
 
 function pushImage(
@@ -297,15 +345,17 @@ function closestLinkUrl(element: Element, baseUrl: string): string | undefined {
   return href ? absolutize(href, baseUrl) : undefined;
 }
 
-function firstSrcsetUrl(value: string | null): string | undefined {
+function bestSrcsetUrl(value: string | null): string | undefined {
   if (!value) {
     return undefined;
   }
 
-  return value
+  const candidates = value
     .split(',')
     .map((candidate) => candidate.trim().split(/\s+/)[0])
-    .find(Boolean);
+    .filter(Boolean);
+
+  return candidates.at(-1);
 }
 
 function inlineStyleUrls(value: string): string[] {
@@ -336,6 +386,10 @@ function absolutize(value: string, baseUrl: string): string {
 
 function shouldSkipUrl(value: string): boolean {
   return /^(javascript:|data:|blob:|about:)/i.test(value);
+}
+
+function isPlaceholderImage(value: string): boolean {
+  return /^(data:|about:blank$)/i.test(value) || /(?:placeholder|blank|spacer|transparent)\.(?:gif|png|svg)(?:$|\?)/i.test(value);
 }
 
 function normalizeText(value: string): string {
