@@ -1,6 +1,9 @@
 import { MdurlError } from '../errors.js';
 import type { FetchResult, PlainFetchOptions } from '../types.js';
 
+const MAX_RETRIES = 2;
+const RETRY_BASE_MS = 100;
+
 export function buildHeaders(options: PlainFetchOptions): Headers {
   const headers = new Headers();
   headers.set('user-agent', options.userAgent);
@@ -24,39 +27,51 @@ export function buildHeaders(options: PlainFetchOptions): Headers {
 export async function fetchPlain(url: string, options: PlainFetchOptions): Promise<FetchResult> {
   const start = Date.now();
   const originalUrl = normalizeUrl(url);
-  let currentUrl = originalUrl;
-  const redirectChain: string[] = [];
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+  let cookieHeader = options.cookie;
+  let lastError: MdurlError | undefined;
 
-  try {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    let currentUrl = originalUrl;
+    const redirectChain: string[] = [];
+
     for (let redirects = 0; redirects <= options.maxRedirects; redirects += 1) {
       let response: Response;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
 
       try {
         response = await fetch(currentUrl, {
-          headers: buildHeaders(options),
+          headers: buildHeaders({ ...options, cookie: cookieHeader }),
           redirect: 'manual',
           signal: controller.signal,
         });
       } catch (error) {
         if (controller.signal.aborted) {
-          throw new MdurlError('timeout', `Request timed out after ${options.timeoutMs}ms`, {
+          lastError = new MdurlError('timeout', `Request timed out after ${options.timeoutMs}ms`, {
             url: currentUrl,
             cause: error,
           });
+          break;
         }
 
         throw new MdurlError('network', errorMessage(error), {
           url: currentUrl,
           cause: error,
         });
+      } finally {
+        clearTimeout(timeout);
       }
+
+      cookieHeader = mergeSetCookies(cookieHeader, getSetCookieHeaders(response.headers));
 
       if (isRedirect(response.status)) {
         const location = response.headers.get('location');
         if (!location) {
-          return responseToResult(response, originalUrl, currentUrl, redirectChain, start);
+          const result = await responseToResult(response, originalUrl, currentUrl, redirectChain, start);
+          if (shouldRetryStatus(result.status, attempt)) {
+            break;
+          }
+          return result;
         }
 
         if (redirects === options.maxRedirects) {
@@ -72,14 +87,25 @@ export async function fetchPlain(url: string, options: PlainFetchOptions): Promi
         continue;
       }
 
-      return responseToResult(response, originalUrl, currentUrl, redirectChain, start);
+      const result = await responseToResult(response, originalUrl, currentUrl, redirectChain, start);
+      if (shouldRetryStatus(result.status, attempt)) {
+        break;
+      }
+      return result;
     }
-  } finally {
-    clearTimeout(timeout);
+
+    if (attempt < MAX_RETRIES) {
+      await delay(RETRY_BASE_MS * 2 ** attempt);
+      continue;
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
   }
 
   throw new MdurlError('network', `Too many redirects; exceeded --max-redirects ${options.maxRedirects}`, {
-    url: currentUrl,
+    url: originalUrl,
   });
 }
 
@@ -134,6 +160,51 @@ function decodeBody(body: Uint8Array, contentType?: string): string {
 
 function isRedirect(status: number): boolean {
   return status >= 300 && status < 400;
+}
+
+function shouldRetryStatus(status: number, attempt: number): boolean {
+  return attempt < MAX_RETRIES && (status === 429 || status === 500 || status === 502 || status === 503 || status === 504);
+}
+
+function getSetCookieHeaders(headers: Headers): string[] {
+  const withSetCookie = headers as Headers & { getSetCookie?: () => string[] };
+  const values = withSetCookie.getSetCookie?.();
+  if (values && values.length > 0) {
+    return values;
+  }
+
+  const combined = headers.get('set-cookie');
+  return combined ? [combined] : [];
+}
+
+function mergeSetCookies(cookieHeader: string | undefined, setCookies: string[]): string | undefined {
+  if (setCookies.length === 0) {
+    return cookieHeader;
+  }
+
+  const cookies = new Map<string, string>();
+  for (const cookie of cookieHeader?.split(';') ?? []) {
+    const [name, ...valueParts] = cookie.trim().split('=');
+    if (name && valueParts.length > 0) {
+      cookies.set(name, valueParts.join('='));
+    }
+  }
+
+  for (const setCookie of setCookies) {
+    const [pair] = setCookie.split(';');
+    const [name, ...valueParts] = pair.trim().split('=');
+    if (name && valueParts.length > 0) {
+      cookies.set(name, valueParts.join('='));
+    }
+  }
+
+  return Array.from(cookies, ([name, value]) => `${name}=${value}`).join('; ') || undefined;
+}
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function errorMessage(error: unknown): string {

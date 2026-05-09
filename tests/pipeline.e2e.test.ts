@@ -27,12 +27,60 @@ const baseOptions: CliOptions = {
 describe('pipeline e2e', () => {
   let server: Server;
   let baseUrl: string;
+  let flakyHits = 0;
+  let slowHits = 0;
 
   beforeAll(async () => {
     server = createServer((request, response) => {
       if (request.url === '/redirect') {
         response.writeHead(302, { location: '/redirects/final' });
         response.end();
+        return;
+      }
+
+      if (request.url === '/cookie-redirect') {
+        response.writeHead(302, { location: '/cookie-final', 'set-cookie': 'gate=1; Path=/' });
+        response.end();
+        return;
+      }
+
+      if (request.url === '/cookie-final') {
+        if (!request.headers.cookie?.includes('gate=1')) {
+          response.writeHead(403, { 'content-type': 'text/html; charset=utf-8' });
+          response.end('<h1>Missing cookie</h1>');
+          return;
+        }
+
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<!doctype html><html><body><main><h1>Cookie Final</h1><p>Cookie carried.</p></main></body></html>');
+        return;
+      }
+
+      if (request.url === '/flaky') {
+        flakyHits += 1;
+        if (flakyHits === 1) {
+          response.writeHead(503, { 'content-type': 'text/html; charset=utf-8' });
+          response.end('<h1>Try again</h1>');
+          return;
+        }
+
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<!doctype html><html><body><main><h1>Recovered</h1><p>Retried successfully.</p></main></body></html>');
+        return;
+      }
+
+      if (request.url === '/slow-once') {
+        slowHits += 1;
+        if (slowHits === 1) {
+          setTimeout(() => {
+            response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+            response.end('<!doctype html><html><body><main><h1>Late</h1></main></body></html>');
+          }, 150);
+          return;
+        }
+
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<!doctype html><html><body><main><h1>Recovered From Timeout</h1></main></body></html>');
         return;
       }
 
@@ -62,13 +110,13 @@ describe('pipeline e2e', () => {
 
       if (request.url === '/paywall') {
         response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        response.end('<!doctype html><main><h1>Subscriber Article</h1><p>Subscribe to continue reading this article.</p></main>');
+        response.end('<!doctype html><html><body><main><h1>Subscriber Article</h1><p>Subscribe to continue reading this article.</p></main></body></html>');
         return;
       }
 
       if (request.url === '/login-wall') {
         response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        response.end('<!doctype html><main><h1>Private Page</h1><p>Sign in to view this page.</p></main>');
+        response.end('<!doctype html><html><body><main><h1>Private Page</h1><p>Sign in to view this page.</p></main></body></html>');
         return;
       }
 
@@ -274,6 +322,32 @@ describe('pipeline e2e', () => {
     expect(result.metadata.original_url).toBe(`${baseUrl}/redirect`);
     expect(result.metadata.url).toBe(`${baseUrl}/redirects/final`);
     expect(result.metadata.redirect_chain).toEqual([`${baseUrl}/redirect`]);
+  });
+
+  it('carries Set-Cookie across redirects', async () => {
+    const result = await runPipeline(`${baseUrl}/cookie-redirect`, baseOptions);
+
+    expect(result.ok).toBe(true);
+    expect(result.metadata.url).toBe(`${baseUrl}/cookie-final`);
+    expect(result.markdown).toContain('# Cookie Final');
+  });
+
+  it('retries transient server failures', async () => {
+    flakyHits = 0;
+    const result = await runPipeline(`${baseUrl}/flaky`, baseOptions);
+
+    expect(result.ok).toBe(true);
+    expect(flakyHits).toBe(2);
+    expect(result.markdown).toContain('# Recovered');
+  });
+
+  it('retries request timeouts', async () => {
+    slowHits = 0;
+    const result = await runPipeline(`${baseUrl}/slow-once`, { ...baseOptions, timeoutMs: 50 });
+
+    expect(result.ok).toBe(true);
+    expect(slowHits).toBe(2);
+    expect(result.markdown).toContain('# Recovered From Timeout');
   });
 
   it('truncates markdown with an explicit marker', async () => {

@@ -39,6 +39,8 @@ mdurl --help
 
 ### Fetching
 
+Plain HTTP fetches retry transient `429`/`5xx` responses and request timeouts with short backoff. Manual redirects preserve `Set-Cookie` values for the next hop.
+
 | Flag | Default | Description |
 |---|---:|---|
 | `--timeout <ms>` | `30000` | Request timeout. |
