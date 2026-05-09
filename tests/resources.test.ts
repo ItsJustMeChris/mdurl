@@ -24,6 +24,10 @@ describe('page resources', () => {
         expect.objectContaining({ level: 2, text: 'Featured Burgers' }),
       ]),
     );
+    expect(resources.pagination).toEqual([
+      { index: 1, rel: 'next', text: 'next', url: 'https://example.com/menu/page/2' },
+      { index: 2, rel: 'prev', text: 'Previous page', url: 'https://example.com/menu/page/0' },
+    ]);
     expect(resources.images).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -98,6 +102,7 @@ describe('page resources', () => {
         { index: 1, level: 1, text: 'Menu', url: 'https://example.com/menu/#menu' },
         { index: 2, level: 2, text: 'Featured Burgers' },
       ],
+      pagination: [{ index: 1, rel: 'next', text: 'Next page', url: 'https://example.com/menu/page/2' }],
       links: [{ index: 1, context: 'navigation', text: 'Menu', url: 'https://example.com/menu/' }],
       images: [
         {
@@ -137,6 +142,8 @@ describe('page resources', () => {
     expect(markdown).toContain('### Navigation');
     expect(markdown).toContain('### Table of Contents');
     expect(markdown).toContain('| 1 | 1 | Menu | https://example.com/menu/#menu |');
+    expect(markdown).toContain('### Pagination');
+    expect(markdown).toContain('| 1 | next | Next page | https://example.com/menu/page/2 |');
     expect(markdown).toContain('| 1 | navigation | Menu | https://example.com/menu/ |');
     expect(markdown).toContain('### Links');
     expect(markdown).toContain('| 1 | header/logo | [logo] Site logo | img | https://example.com/logo.png | https://example.com/ |');

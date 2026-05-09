@@ -6,11 +6,13 @@ import type {
   PageHeadingReference,
   PageImageReference,
   PageLinkReference,
+  PagePaginationReference,
   PageResources,
 } from '../types.js';
 
 const EMPTY_RESOURCES: PageResources = {
   headings: [],
+  pagination: [],
   links: [],
   images: [],
   forms: [],
@@ -20,6 +22,7 @@ const EMPTY_RESOURCES: PageResources = {
 export function emptyPageResources(): PageResources {
   return {
     headings: [],
+    pagination: [],
     links: [],
     images: [],
     forms: [],
@@ -36,6 +39,7 @@ export function extractPageResources(html: string, baseUrl: string): PageResourc
 
   return {
     headings: extractHeadings(document, baseUrl),
+    pagination: extractPagination(document, baseUrl),
     links: extractLinks(document, baseUrl),
     images: extractImages(document, baseUrl),
     forms: extractForms(document, baseUrl),
@@ -49,7 +53,8 @@ export function appendPageResources(markdown: string, resources: PageResources):
     resources.images.length === 0 &&
     resources.forms.length === 0 &&
     resources.embeds.length === 0 &&
-    resources.headings.length === 0
+    resources.headings.length === 0 &&
+    resources.pagination.length === 0
   ) {
     return markdown;
   }
@@ -80,6 +85,20 @@ export function appendPageResources(markdown: string, resources: PageResources):
       ...resources.headings.map(
         (heading) =>
           `| ${heading.index} | ${heading.level} | ${escapeTableCell(heading.text)} | ${escapeTableCell(heading.url ?? '')} |`,
+      ),
+      '',
+    );
+  }
+
+  if (resources.pagination.length > 0) {
+    sections.push(
+      '### Pagination',
+      '',
+      '| # | Rel | Text | URL |',
+      '|---:|---|---|---|',
+      ...resources.pagination.map(
+        (link) =>
+          `| ${link.index} | ${link.rel} | ${escapeTableCell(link.text)} | ${escapeTableCell(link.url)} |`,
       ),
       '',
     );
@@ -171,6 +190,33 @@ function extractHeadings(document: Document, baseUrl: string): PageHeadingRefere
     }))
     .filter((heading) => heading.text)
     .map((heading, index) => ({ ...heading, index: index + 1 }));
+}
+
+function extractPagination(document: Document, baseUrl: string): PagePaginationReference[] {
+  const pagination: Omit<PagePaginationReference, 'index'>[] = [];
+  const seen = new Set<string>();
+
+  for (const element of Array.from(document.querySelectorAll('a[href][rel], link[href][rel]'))) {
+    const rel = paginationRel(element.getAttribute('rel') ?? '');
+    const href = element.getAttribute('href');
+    if (!rel || !href) {
+      continue;
+    }
+
+    const url = absolutize(href, baseUrl);
+    if (shouldSkipUrl(url) || seen.has(`${rel}\u0000${url}`)) {
+      continue;
+    }
+
+    seen.add(`${rel}\u0000${url}`);
+    pagination.push({
+      rel,
+      text: normalizeText(element.textContent ?? '') || normalizeText(element.getAttribute('title') ?? '') || rel,
+      url,
+    });
+  }
+
+  return pagination.map((link, index) => ({ ...link, index: index + 1 }));
 }
 
 function extractLinks(document: Document, baseUrl: string): PageLinkReference[] {
@@ -657,6 +703,19 @@ function shouldSkipUrl(value: string): boolean {
 
 function isNavigationalContext(context: string): boolean {
   return /(^|\/)(header|navigation|footer|breadcrumb|sidebar|aside|menu|logo)(\/|$)/i.test(context);
+}
+
+function paginationRel(value: string): PagePaginationReference['rel'] | undefined {
+  const tokens = normalizeText(value).toLowerCase().split(/\s+/);
+  if (tokens.includes('next')) {
+    return 'next';
+  }
+
+  if (tokens.includes('prev') || tokens.includes('previous')) {
+    return 'prev';
+  }
+
+  return undefined;
 }
 
 function isPlaceholderImage(value: string): boolean {

@@ -300,9 +300,11 @@ describe('pipeline e2e', () => {
     expect(result.markdown).not.toContain('## Page Resources');
     expect(result.metadata.link_count).toBeUndefined();
     expect(result.metadata.heading_count).toBeUndefined();
+    expect(result.metadata.pagination_count).toBeUndefined();
     expect(result.metadata.form_count).toBeUndefined();
     expect(result.metadata.embed_count).toBeUndefined();
     expect(result.resources.headings).toEqual([]);
+    expect(result.resources.pagination).toEqual([]);
     expect(result.resources.links).toEqual([]);
     expect(result.resources.forms).toEqual([]);
     expect(result.resources.embeds).toEqual([]);

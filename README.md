@@ -123,7 +123,7 @@ Example:
    Yes. Wrap it tightly and freeze for up to 3 months.
 ```
 
-By default, `mdurl` appends a `## Page Resources` section built from the full fetched page, even when the main markdown body is extracted with Readability. This section includes a heading table of contents, navigation/header/footer links, linked images, logos, favicons, Open Graph images, lazy-loaded `data-src`/`data-srcset` images, responsive `<picture>` sources, forms, and embedded iframe/video/audio URLs that are useful for agents that need to follow the page, retrieve assets, or understand available page actions.
+By default, `mdurl` appends a `## Page Resources` section built from the full fetched page, even when the main markdown body is extracted with Readability. This section includes a heading table of contents, pagination links, navigation/header/footer links, linked images, logos, favicons, Open Graph images, lazy-loaded `data-src`/`data-srcset` images, responsive `<picture>` sources, forms, and embedded iframe/video/audio URLs that are useful for agents that need to follow the page, retrieve assets, or understand available page actions.
 
 Example:
 
@@ -141,6 +141,12 @@ Example:
 | # | Area | Text | URL |
 |---:|---|---|---|
 | 1 | navigation | Menu | https://example.com/menu/ |
+
+### Pagination
+
+| # | Rel | Text | URL |
+|---:|---|---|---|
+| 1 | next | Next page | https://example.com/menu/page/2 |
 
 ### Links
 

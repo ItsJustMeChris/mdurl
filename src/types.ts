@@ -114,6 +114,13 @@ export interface PageImageReference {
   source: 'img' | 'srcset' | 'data' | 'source' | 'icon' | 'meta' | 'style';
 }
 
+export interface PagePaginationReference {
+  index: number;
+  rel: 'next' | 'prev';
+  text: string;
+  url: string;
+}
+
 export interface PageFormReference {
   index: number;
   context: string;
@@ -146,6 +153,7 @@ export interface PageEmbedReference {
 
 export interface PageResources {
   headings: PageHeadingReference[];
+  pagination: PagePaginationReference[];
   links: PageLinkReference[];
   images: PageImageReference[];
   forms: PageFormReference[];
@@ -216,6 +224,7 @@ export interface DocumentMetadata {
   lang?: string;
   link_count?: number;
   heading_count?: number;
+  pagination_count?: number;
   image_count?: number;
   form_count?: number;
   embed_count?: number;

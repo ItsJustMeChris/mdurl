@@ -266,6 +266,10 @@ function buildMetadata(
     metadata.heading_count = details.resources.headings.length;
   }
 
+  if (details.resources.pagination.length > 0) {
+    metadata.pagination_count = details.resources.pagination.length;
+  }
+
   if (details.resources.images.length > 0) {
     metadata.image_count = details.resources.images.length;
   }
