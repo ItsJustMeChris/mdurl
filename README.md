@@ -18,6 +18,9 @@ render_mode: http
 elapsed_ms: 120
 word_count: 21
 content_type: text/html
+description: A concise page summary from meta tags
+site_name: Example
+canonical_url: https://example.com/
 ---
 
 # Example Domain

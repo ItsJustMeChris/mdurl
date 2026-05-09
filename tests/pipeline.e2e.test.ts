@@ -89,6 +89,9 @@ describe('pipeline e2e', () => {
     expect(result.ok).toBe(true);
     expect(output).toContain('status: 200');
     expect(output).toContain('render_mode: http');
+    expect(output).toContain('description: A static fixture page for mdurl tests.');
+    expect(output).toContain('site_name: mdurl fixtures');
+    expect(output).toContain(`canonical_url: ${baseUrl}/static`);
     expect(output).toContain('# Example Domain');
     expect(output).toContain('## Page Resources');
   });

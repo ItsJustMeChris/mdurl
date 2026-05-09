@@ -172,6 +172,9 @@ export interface DocumentMetadata {
   url: string;
   original_url?: string;
   title?: string;
+  description?: string;
+  site_name?: string;
+  canonical_url?: string;
   fetched_at: string;
   status: number;
   render_mode: RenderMode;

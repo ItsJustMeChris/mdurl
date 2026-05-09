@@ -6,6 +6,7 @@ import { fetchPlain } from './fetch/plain.js';
 import { htmlToMarkdown, wordCount } from './convert/markdown.js';
 import { appendPageResources, emptyPageResources, extractPageResources } from './convert/resources.js';
 import { appendStructuredData, extractStructuredData } from './convert/structuredData.js';
+import { extractHeadMetadata, type HeadMetadata } from './extract/head.js';
 import { extractContent } from './extract/readability.js';
 import { renderFrontmatter } from './output/frontmatter.js';
 import { renderJsonEnvelope } from './output/envelope.js';
@@ -25,6 +26,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       });
     }
 
+    const head = extractHeadMetadata(result.html, result.url);
     const extracted = extractContent(result.html, result.url, {
       full: options.full,
       selector: options.selector,
@@ -41,7 +43,8 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
     const truncated = truncateMarkdown(markdown, options.maxBytes);
     const metadata = buildMetadata(result, {
       fetchedAt,
-      title: extracted.title,
+      title: extracted.title || head.title,
+      head,
       lang: extracted.lang,
       markdown: truncated.markdown,
       truncated: truncated.truncated,
@@ -136,6 +139,7 @@ function buildMetadata(
   details: {
     fetchedAt: string;
     title?: string;
+    head: HeadMetadata;
     lang?: string;
     markdown: string;
     truncated: boolean;
@@ -159,6 +163,18 @@ function buildMetadata(
 
   if (details.title) {
     metadata.title = details.title;
+  }
+
+  if (details.head.description) {
+    metadata.description = details.head.description;
+  }
+
+  if (details.head.siteName) {
+    metadata.site_name = details.head.siteName;
+  }
+
+  if (details.head.canonicalUrl) {
+    metadata.canonical_url = details.head.canonicalUrl;
   }
 
   if (details.lang) {
