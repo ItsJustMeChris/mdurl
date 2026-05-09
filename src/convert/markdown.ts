@@ -51,11 +51,64 @@ export function wordCount(markdown: string): number {
 }
 
 function normalizeMarkdown(markdown: string): string {
-  return `${markdown
+  return `${promoteCodeLanguageLabels(markdown)
     .replace(/\r\n/g, '\n')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()}\n`;
+}
+
+function promoteCodeLanguageLabels(markdown: string): string {
+  return markdown.replace(/\n\n([A-Za-z][\w#+.-]{0,30})\n\n```/g, (match, language: string) => {
+    const normalized = normalizeLanguageLabel(language);
+    return normalized ? `\n\n\`\`\`${normalized}` : match;
+  });
+}
+
+function normalizeLanguageLabel(language: string): string | undefined {
+  const normalized = language.trim().toLowerCase();
+  const aliases: Record<string, string> = {
+    'c++': 'cpp',
+    'c#': 'csharp',
+    shell: 'sh',
+    javascript: 'js',
+    typescript: 'ts',
+  };
+  const allowed = new Set([
+    'bash',
+    'c',
+    'clojure',
+    'cpp',
+    'csharp',
+    'css',
+    'diff',
+    'go',
+    'graphql',
+    'html',
+    'http',
+    'java',
+    'js',
+    'json',
+    'jsx',
+    'kotlin',
+    'php',
+    'python',
+    'ruby',
+    'rust',
+    'scss',
+    'sh',
+    'sql',
+    'swift',
+    'toml',
+    'ts',
+    'tsx',
+    'xml',
+    'yaml',
+    'yml',
+  ]);
+  const aliased = aliases[normalized] ?? normalized;
+
+  return allowed.has(aliased) ? aliased : undefined;
 }
 
 function isRowHeaderTable(node: Element): boolean {

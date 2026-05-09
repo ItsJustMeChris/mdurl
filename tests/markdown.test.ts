@@ -51,4 +51,19 @@ describe('htmlToMarkdown', () => {
     expect(result.markdown).toContain('| DOM interface | `HTMLElement` |');
     expect(result.markdown).not.toContain('<table>');
   });
+
+  it('promotes standalone language labels into fenced code info strings', () => {
+    const result = htmlToMarkdown(
+      `
+        <p>Use fetch like this:</p>
+        <p>js</p>
+        <pre><code>const response = await fetch("/api");</code></pre>
+      `,
+      'https://example.com/',
+      { includeLinks: false },
+    );
+
+    expect(result.markdown).toContain('```js\nconst response = await fetch("/api");');
+    expect(result.markdown).not.toContain('\njs\n\n```');
+  });
 });
