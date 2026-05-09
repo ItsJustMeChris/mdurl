@@ -25,4 +25,30 @@ describe('htmlToMarkdown', () => {
     expect(result.markdown).toContain('| Task | Done |');
     expect(result.markdown).toContain('| Build | yes |');
   });
+
+  it('converts row-header tables to readable markdown tables', () => {
+    const result = htmlToMarkdown(
+      `
+        <table>
+          <tbody>
+            <tr>
+              <th scope="row"><a href="/content">Content categories</a></th>
+              <td>None.</td>
+            </tr>
+            <tr>
+              <th scope="row">DOM interface</th>
+              <td><code>HTMLElement</code></td>
+            </tr>
+          </tbody>
+        </table>
+      `,
+      'https://example.com/',
+      { includeLinks: false },
+    );
+
+    expect(result.markdown).toContain('| Field | Value |');
+    expect(result.markdown).toContain('| [Content categories](https://example.com/content) | None. |');
+    expect(result.markdown).toContain('| DOM interface | `HTMLElement` |');
+    expect(result.markdown).not.toContain('<table>');
+  });
 });
