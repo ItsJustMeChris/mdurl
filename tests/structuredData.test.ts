@@ -28,6 +28,21 @@ describe('structured data', () => {
         instructions: ['Preheat oven to 350 degrees F.', 'Mix ingredients and bake.'],
         rating: '4.8 (12000 reviews)',
       }),
+      expect.objectContaining({
+        index: 2,
+        type: 'FAQPage',
+        name: 'Banana Bread FAQ',
+        questions: [
+          {
+            question: 'Can I freeze banana bread?',
+            answer: 'Yes. Wrap it tightly and freeze for up to 3 months.',
+          },
+          {
+            question: 'How ripe should bananas be?',
+            answer: 'Use very ripe bananas with brown spots.',
+          },
+        ],
+      }),
     ]);
   });
 
@@ -39,6 +54,7 @@ describe('structured data', () => {
         name: 'Banana Bread',
         ingredients: ['2 cups flour'],
         instructions: ['Mix.', 'Bake.'],
+        questions: [{ question: 'Can I freeze it?', answer: 'Yes.' }],
       },
     ]);
 
@@ -48,5 +64,8 @@ describe('structured data', () => {
     expect(markdown).toContain('- 2 cups flour');
     expect(markdown).toContain('1. Mix.');
     expect(markdown).toContain('2. Bake.');
+    expect(markdown).toContain('**Questions:**');
+    expect(markdown).toContain('1. **Can I freeze it?**');
+    expect(markdown).toContain('   Yes.');
   });
 });

@@ -72,7 +72,7 @@ mdurl install-browser
 | `--no-structured-data` | Omit the default `## Structured Data` section. |
 | `--max-bytes <n>` | Truncate markdown with a `[truncated]` marker. |
 
-By default, `mdurl` appends a compact `## Structured Data` section when the page includes JSON-LD. This is useful on recipe, product, event, article, and local-business pages where the HTML may be noisy but the embedded schema contains concise facts such as ingredients, instructions, offers, ratings, authors, dates, and canonical images.
+By default, `mdurl` appends a compact `## Structured Data` section when the page includes JSON-LD. This is useful on recipe, product, event, article, FAQ, Q&A, and local-business pages where the HTML may be noisy but the embedded schema contains concise facts such as ingredients, instructions, questions, answers, offers, ratings, authors, dates, and canonical images.
 
 Example:
 
@@ -95,6 +95,11 @@ Example:
 
 1. Preheat oven to 350 degrees F.
 2. Mix ingredients and bake.
+
+**Questions:**
+
+1. **Can I freeze banana bread?**
+   Yes. Wrap it tightly and freeze for up to 3 months.
 ```
 
 By default, `mdurl` appends a `## Page Resources` section built from the full fetched page, even when the main markdown body is extracted with Readability. This section includes navigation/header/footer links, linked images, logos, favicons, Open Graph images, lazy-loaded `data-src`/`data-srcset` images, responsive `<picture>` sources, and other image URLs that are useful for agents that need to follow the page or retrieve assets.

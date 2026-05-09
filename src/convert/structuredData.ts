@@ -1,5 +1,5 @@
 import { parseHTML } from 'linkedom';
-import type { StructuredDataItem } from '../types.js';
+import type { StructuredDataItem, StructuredDataQuestion } from '../types.js';
 
 const MAX_ITEMS = 8;
 const MAX_IMAGES = 8;
@@ -67,6 +67,7 @@ export function appendStructuredData(markdown: string, items: StructuredDataItem
     appendList(lines, 'Offers', item.offers);
     appendList(lines, 'Ingredients', item.ingredients);
     appendList(lines, 'Instructions', item.instructions, true);
+    appendQuestions(lines, item.questions);
 
     lines.push('');
   }
@@ -151,6 +152,9 @@ function summarizeNode(node: Record<string, unknown>, baseUrl: string): Omit<Str
   const instructions = instructionValues(node.recipeInstructions).slice(0, MAX_LIST_ITEMS);
   if (instructions.length > 0) item.instructions = instructions;
 
+  const questions = questionValues(node.mainEntity ?? node.acceptedAnswer, baseUrl).slice(0, MAX_LIST_ITEMS);
+  if (questions.length > 0) item.questions = questions;
+
   const rating = ratingValue(node.aggregateRating);
   if (rating) item.rating = rating;
 
@@ -164,6 +168,7 @@ function summarizeNode(node: Record<string, unknown>, baseUrl: string): Omit<Str
     item.images?.length ||
     item.ingredients?.length ||
     item.instructions?.length ||
+    item.questions?.length ||
     item.offers?.length;
 
   return hasUsefulData ? item : undefined;
@@ -230,6 +235,41 @@ function instructionValues(value: unknown): string[] {
       return [textValue(entry)];
     })
     .filter(Boolean);
+}
+
+function questionValues(value: unknown, baseUrl: string): StructuredDataQuestion[] {
+  return arrayValues(value)
+    .flatMap((entry) => {
+      if (!isRecord(entry)) {
+        return [];
+      }
+
+      if (Array.isArray(entry.itemListElement)) {
+        return questionValues(entry.itemListElement, baseUrl);
+      }
+
+      const question = textValue(entry.name || entry.headline || entry.text);
+      if (!question) {
+        return [];
+      }
+
+      const answer = answerValue(entry.acceptedAnswer ?? entry.suggestedAnswer);
+      const url = urlValue(entry.url ?? entry['@id'], baseUrl);
+
+      return [
+        {
+          question,
+          answer,
+          url,
+        },
+      ];
+    })
+    .filter((entry) => entry.question);
+}
+
+function answerValue(value: unknown): string | undefined {
+  const answers = arrayValues(value).map((entry) => htmlToText(textValue(entry))).filter(Boolean);
+  return answers.join(' / ') || undefined;
 }
 
 function ratingValue(value: unknown): string | undefined {
@@ -302,6 +342,32 @@ function appendList(lines: string[], label: string, values?: string[], ordered =
   for (const [index, value] of values.entries()) {
     lines.push(ordered ? `${index + 1}. ${value}` : `- ${value}`);
   }
+}
+
+function appendQuestions(lines: string[], questions?: StructuredDataQuestion[]): void {
+  if (!questions || questions.length === 0) {
+    return;
+  }
+
+  lines.push('', '**Questions:**', '');
+  for (const [index, question] of questions.entries()) {
+    lines.push(`${index + 1}. **${question.question}**`);
+    if (question.answer) {
+      lines.push(`   ${question.answer}`);
+    }
+    if (question.url) {
+      lines.push(`   URL: ${question.url}`);
+    }
+  }
+}
+
+function htmlToText(value: string): string {
+  if (!/[<&]/u.test(value)) {
+    return value;
+  }
+
+  const { document } = parseHTML(`<main>${value}</main>`);
+  return (document.querySelector('main')?.textContent ?? value).replace(/\s+/g, ' ').trim();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -112,8 +112,15 @@ export interface StructuredDataItem {
   recipe_cuisine?: string[];
   ingredients?: string[];
   instructions?: string[];
+  questions?: StructuredDataQuestion[];
   rating?: string;
   offers?: string[];
+}
+
+export interface StructuredDataQuestion {
+  question: string;
+  answer?: string;
+  url?: string;
 }
 
 export interface MarkdownResult {
