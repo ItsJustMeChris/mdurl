@@ -1,0 +1,201 @@
+import { writeFile } from 'node:fs/promises';
+import { MdurlError, normalizeError } from './errors.js';
+import { detectSpa } from './fetch/detectSpa.js';
+import { fetchBrowser } from './fetch/browser.js';
+import { fetchPlain } from './fetch/plain.js';
+import { htmlToMarkdown, wordCount } from './convert/markdown.js';
+import { appendPageResources, emptyPageResources, extractPageResources } from './convert/resources.js';
+import { extractContent } from './extract/readability.js';
+import { renderFrontmatter } from './output/frontmatter.js';
+import { renderJsonEnvelope } from './output/envelope.js';
+import type { CliOptions, DocumentMetadata, FetchResult, PageResources, PipelineResult } from './types.js';
+
+export async function runPipeline(url: string, options: CliOptions): Promise<PipelineResult> {
+  const fetchedAt = new Date().toISOString();
+
+  try {
+    const result = await fetchWithRendering(url, options);
+
+    if (result.status < 200 || result.status >= 300) {
+      throw new MdurlError('http', `HTTP ${result.status} ${result.statusText}`.trim(), {
+        status: result.status,
+        url: result.url,
+        contentType: result.contentType,
+      });
+    }
+
+    const extracted = extractContent(result.html, result.url, {
+      full: options.full,
+      selector: options.selector,
+    });
+    const converted = htmlToMarkdown(extracted.html, result.url, {
+      includeLinks: options.includeLinks,
+    });
+    const resources = options.resources ? extractPageResources(result.html, result.url) : emptyPageResources();
+    const markdown = options.resources ? appendPageResources(converted.markdown, resources) : converted.markdown;
+    const truncated = truncateMarkdown(markdown, options.maxBytes);
+    const metadata = buildMetadata(result, {
+      fetchedAt,
+      title: extracted.title,
+      lang: extracted.lang,
+      markdown: truncated.markdown,
+      truncated: truncated.truncated,
+      resources,
+    });
+
+    return {
+      ok: true,
+      metadata,
+      markdown: truncated.markdown,
+      resources,
+      exitCode: 0,
+    };
+  } catch (error) {
+    const normalized = normalizeError(error);
+    const metadata: DocumentMetadata = {
+      url: normalized.url ?? normalizeInputUrl(url),
+      title: undefined,
+      fetched_at: fetchedAt,
+      status: normalized.status ?? 0,
+      render_mode: normalized.kind === 'browser' ? 'js' : 'http',
+      elapsed_ms: 0,
+      word_count: 0,
+      content_type: normalized.contentType,
+      error: normalized.message,
+    };
+
+    return {
+      ok: false,
+      metadata,
+      markdown: '',
+      resources: emptyPageResources(),
+      exitCode: normalized.exitCode,
+    };
+  }
+}
+
+export function formatResult(result: PipelineResult, options: CliOptions): string {
+  if (options.json) {
+    return renderJsonEnvelope(result.metadata, result.markdown, result.resources);
+  }
+
+  if (!options.frontmatter) {
+    return result.markdown;
+  }
+
+  return renderFrontmatter(result.metadata, result.markdown);
+}
+
+export async function writeResult(output: string, options: CliOptions): Promise<void> {
+  if (options.output) {
+    await writeFile(options.output, output, 'utf8');
+    return;
+  }
+
+  process.stdout.write(output);
+}
+
+async function fetchWithRendering(url: string, options: CliOptions): Promise<FetchResult> {
+  if (options.jsMode === 'force') {
+    return fetchBrowser(url, options);
+  }
+
+  const plain = await fetchPlain(url, options);
+
+  if (options.jsMode === 'disabled') {
+    return plain;
+  }
+
+  const detection = detectSpa(plain);
+
+  if (!detection.isSpa) {
+    return plain;
+  }
+
+  if (!options.quiet) {
+    process.stderr.write(`mdurl: SPA shell detected (${detection.reasons.join('; ')}); rendering with browser\n`);
+  }
+
+  return fetchBrowser(plain.url, options);
+}
+
+function buildMetadata(
+  result: FetchResult,
+  details: {
+    fetchedAt: string;
+    title?: string;
+    lang?: string;
+    markdown: string;
+    truncated: boolean;
+    resources: PageResources;
+  },
+): DocumentMetadata {
+  const metadata: DocumentMetadata = {
+    url: result.url,
+    fetched_at: details.fetchedAt,
+    status: result.status,
+    render_mode: result.renderMode,
+    elapsed_ms: result.elapsedMs,
+    word_count: wordCount(details.markdown),
+    content_type: result.contentType,
+  };
+
+  if (result.originalUrl !== result.url) {
+    metadata.original_url = result.originalUrl;
+  }
+
+  if (details.title) {
+    metadata.title = details.title;
+  }
+
+  if (details.lang) {
+    metadata.lang = details.lang;
+  }
+
+  if (details.resources.links.length > 0) {
+    metadata.link_count = details.resources.links.length;
+  }
+
+  if (details.resources.images.length > 0) {
+    metadata.image_count = details.resources.images.length;
+  }
+
+  if (result.redirectChain.length > 0) {
+    metadata.redirect_chain = result.redirectChain;
+  }
+
+  if (details.truncated) {
+    metadata.truncated = true;
+  }
+
+  return metadata;
+}
+
+function truncateMarkdown(markdown: string, maxBytes?: number): { markdown: string; truncated: boolean } {
+  if (!maxBytes || Buffer.byteLength(markdown, 'utf8') <= maxBytes) {
+    return { markdown, truncated: false };
+  }
+
+  const marker = '\n\n[truncated]\n';
+  const markerBytes = Buffer.byteLength(marker, 'utf8');
+  const budget = Math.max(0, maxBytes - markerBytes);
+  const buffer = Buffer.from(markdown, 'utf8');
+  const truncated = buffer.subarray(0, budget).toString('utf8').replace(/\uFFFD$/u, '').trimEnd();
+
+  return {
+    markdown: `${truncated}${marker}`,
+    truncated: true,
+  };
+}
+
+function normalizeInputUrl(value: string): string {
+  try {
+    return new URL(value).toString();
+  } catch {
+    try {
+      return new URL(`https://${value}`).toString();
+    } catch {
+      return value;
+    }
+  }
+}

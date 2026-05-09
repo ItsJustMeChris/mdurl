@@ -1,0 +1,41 @@
+{
+  "name": "mdurl",
+  "version": "0.1.0",
+  "description": "A curl-shaped CLI that fetches webpages as clean markdown for agents.",
+  "type": "module",
+  "bin": {
+    "mdurl": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepack": "npm run build",
+    "smoke": "bash scripts/smoke.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "commander": "^14.0.2",
+    "linkedom": "^0.18.12",
+    "playwright-core": "^1.56.1",
+    "turndown": "^7.2.2",
+    "turndown-plugin-gfm": "^1.0.2",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/turndown": "^5.0.5",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  }
+}
