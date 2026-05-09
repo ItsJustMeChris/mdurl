@@ -4,6 +4,8 @@ export type JsMode = 'auto' | 'force' | 'disabled';
 
 export type ContentKind = 'html' | 'pdf' | 'feed' | 'json' | 'xml' | 'text' | 'image' | 'media' | 'binary';
 
+export type AccessStatus = 'bot_challenge' | 'paywall' | 'login_wall';
+
 export interface HeaderPair {
   name: string;
   value: string;
@@ -187,6 +189,7 @@ export interface DocumentMetadata {
   content_kind?: ContentKind;
   byte_count?: number;
   page_count?: number;
+  access_status?: AccessStatus;
   lang?: string;
   link_count?: number;
   image_count?: number;

@@ -54,6 +54,24 @@ describe('pipeline e2e', () => {
         return;
       }
 
+      if (request.url === '/cloudflare') {
+        response.writeHead(403, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<!doctype html><title>Just a moment...</title><div id="cf-browser-verification">Checking your browser before accessing this site.</div>');
+        return;
+      }
+
+      if (request.url === '/paywall') {
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<!doctype html><main><h1>Subscriber Article</h1><p>Subscribe to continue reading this article.</p></main>');
+        return;
+      }
+
+      if (request.url === '/login-wall') {
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<!doctype html><main><h1>Private Page</h1><p>Sign in to view this page.</p></main>');
+        return;
+      }
+
       if (request.url === '/spa') {
         response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         response.end(readFileSync(join(fixtures, 'spa-shell.html'), 'utf8'));
@@ -230,6 +248,26 @@ describe('pipeline e2e', () => {
     expect(result.metadata.error).toContain('HTTP 500');
   });
 
+  it('flags bot challenges on HTTP errors', async () => {
+    const result = await runPipeline(`${baseUrl}/cloudflare`, baseOptions);
+    const output = formatResult(result, baseOptions);
+
+    expect(result.ok).toBe(false);
+    expect(result.metadata.access_status).toBe('bot_challenge');
+    expect(result.metadata.error).toContain('bot challenge detected');
+    expect(output).toContain('access_status: bot_challenge');
+  });
+
+  it('flags paywalls and login walls on successful pages', async () => {
+    const paywall = await runPipeline(`${baseUrl}/paywall`, baseOptions);
+    const loginWall = await runPipeline(`${baseUrl}/login-wall`, baseOptions);
+
+    expect(paywall.ok).toBe(true);
+    expect(paywall.metadata.access_status).toBe('paywall');
+    expect(loginWall.ok).toBe(true);
+    expect(loginWall.metadata.access_status).toBe('login_wall');
+  });
+
   it('tracks redirect chains', async () => {
     const result = await runPipeline(`${baseUrl}/redirect`, baseOptions);
 
@@ -279,6 +317,7 @@ function mockPlaywright(html: string, finalUrl: string): void {
             })),
             content: vi.fn(async () => html),
             url: vi.fn(() => finalUrl),
+            waitForLoadState: vi.fn(async () => undefined),
             waitForTimeout: vi.fn(),
           })),
           close: vi.fn(),

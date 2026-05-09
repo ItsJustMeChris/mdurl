@@ -1,3 +1,5 @@
+import type { AccessStatus } from './types.js';
+
 export type MdurlErrorKind =
   | 'http'
   | 'timeout'
@@ -12,6 +14,7 @@ export class MdurlError extends Error {
   readonly status?: number;
   readonly url?: string;
   readonly contentType?: string;
+  readonly accessStatus?: AccessStatus;
 
   constructor(
     kind: MdurlErrorKind,
@@ -20,6 +23,7 @@ export class MdurlError extends Error {
       status?: number;
       url?: string;
       contentType?: string;
+      accessStatus?: AccessStatus;
       cause?: unknown;
     } = {},
   ) {
@@ -30,6 +34,7 @@ export class MdurlError extends Error {
     this.status = options.status;
     this.url = options.url;
     this.contentType = options.contentType;
+    this.accessStatus = options.accessStatus;
     this.cause = options.cause;
   }
 }

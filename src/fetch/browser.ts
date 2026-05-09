@@ -43,13 +43,15 @@ export async function fetchBrowser(url: string, options: BrowserFetchOptions): P
     });
     const page = await context.newPage();
     const response = await page.goto(url, {
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded',
       timeout: options.timeoutMs,
       referer: options.referer,
     });
 
     if (options.waitSelector) {
       await page.waitForSelector(options.waitSelector, { timeout: options.timeoutMs });
+    } else {
+      await page.waitForLoadState('networkidle', { timeout: Math.min(options.timeoutMs, 3000) }).catch(() => undefined);
     }
 
     if (options.waitMs > 0) {

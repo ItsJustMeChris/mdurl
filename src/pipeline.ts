@@ -7,6 +7,7 @@ import { htmlToMarkdown, wordCount } from './convert/markdown.js';
 import { classifyContent, convertNonHtml } from './convert/nonHtml.js';
 import { appendPageResources, emptyPageResources, extractPageResources } from './convert/resources.js';
 import { appendStructuredData, extractStructuredData } from './convert/structuredData.js';
+import { accessStatusLabel, detectAccessStatus } from './extract/access.js';
 import { extractHeadMetadata, type HeadMetadata } from './extract/head.js';
 import { extractContent } from './extract/readability.js';
 import { renderFrontmatter } from './output/frontmatter.js';
@@ -18,12 +19,15 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
 
   try {
     const result = await fetchWithRendering(url, options);
+    const accessStatus = detectAccessStatus(result.html, result.status);
 
     if (result.status < 200 || result.status >= 300) {
-      throw new MdurlError('http', `HTTP ${result.status} ${result.statusText}`.trim(), {
+      const message = `HTTP ${result.status} ${result.statusText}`.trim();
+      throw new MdurlError('http', accessStatus ? `${message} (${accessStatusLabel(accessStatus)})` : message, {
         status: result.status,
         url: result.url,
         contentType: result.contentType,
+        accessStatus,
       });
     }
 
@@ -38,6 +42,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
         contentKind: converted.contentKind,
         byteCount,
         pageCount: converted.pageCount,
+        accessStatus,
         markdown: truncated.markdown,
         truncated: truncated.truncated,
         resources: emptyPageResources(),
@@ -75,6 +80,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       head,
       contentKind,
       byteCount: result.body?.byteLength,
+      accessStatus,
       lang: extracted.lang,
       markdown: truncated.markdown,
       truncated: truncated.truncated,
@@ -101,6 +107,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       elapsed_ms: 0,
       word_count: 0,
       content_type: normalized.contentType,
+      access_status: normalized.accessStatus,
       error: normalized.message,
     };
 
@@ -177,6 +184,7 @@ function buildMetadata(
     contentKind?: ContentKind;
     byteCount?: number;
     pageCount?: number;
+    accessStatus?: DocumentMetadata['access_status'];
     lang?: string;
     markdown: string;
     truncated: boolean;
@@ -224,6 +232,10 @@ function buildMetadata(
 
   if (details.pageCount !== undefined) {
     metadata.page_count = details.pageCount;
+  }
+
+  if (details.accessStatus) {
+    metadata.access_status = details.accessStatus;
   }
 
   if (details.lang) {

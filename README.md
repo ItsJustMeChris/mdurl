@@ -50,14 +50,14 @@ mdurl --help
 
 ### Rendering
 
-`mdurl` tries plain HTTP first. If the response looks like a sparse SPA shell, it falls back to headless browser rendering.
+`mdurl` tries plain HTTP first. If the response looks like a sparse SPA shell, it falls back to headless browser rendering. Browser mode waits for `domcontentloaded`, then does a short best-effort network-idle settle unless `--wait-selector` is provided.
 
 | Flag | Description |
 |---|---|
 | `--js` | Force browser rendering. |
 | `--no-js` | Disable automatic browser fallback. |
 | `--wait-selector <css>` | Wait for a selector in browser mode before extracting. |
-| `--wait-ms <n>` | Extra settle delay after browser network idle. |
+| `--wait-ms <n>` | Extra settle delay after browser rendering. |
 | `--browser-path <path>` | Override Chrome/Chromium executable path. |
 
 `mdurl` uses `playwright-core`, so Chromium is not downloaded during npm install. Install it only when needed:
@@ -193,7 +193,7 @@ mdurl https://example.com/long-article --max-bytes 20000
 
 ## Error Contract
 
-Failures keep the same output shape. The frontmatter or JSON envelope includes `status` and `error`, followed by an empty markdown body.
+Failures keep the same output shape. The frontmatter or JSON envelope includes `status` and `error`, followed by an empty markdown body. When mdurl detects an access barrier, metadata also includes `access_status` with `bot_challenge`, `paywall`, or `login_wall`.
 
 | Exit | Meaning |
 |---:|---|
