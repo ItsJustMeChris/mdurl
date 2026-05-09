@@ -60,6 +60,49 @@ describe('pipeline e2e', () => {
         return;
       }
 
+      if (request.url === '/document.pdf') {
+        response.writeHead(200, { 'content-type': 'application/pdf' });
+        response.end(makePdf('Hello from a PDF fixture.'));
+        return;
+      }
+
+      if (request.url === '/feed.xml') {
+        response.writeHead(200, { 'content-type': 'application/rss+xml; charset=utf-8' });
+        response.end(`<?xml version="1.0"?>
+          <rss version="2.0">
+            <channel>
+              <title>Fixture Feed</title>
+              <link>${baseUrl}/</link>
+              <description>Recent fixture updates.</description>
+              <item>
+                <title>First entry</title>
+                <link>${baseUrl}/first</link>
+                <pubDate>Sat, 09 May 2026 12:00:00 GMT</pubDate>
+                <description><![CDATA[<p>Feed item &amp; body.</p>]]></description>
+              </item>
+            </channel>
+          </rss>`);
+        return;
+      }
+
+      if (request.url === '/data.json') {
+        response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ name: 'Fixture API', items: [{ id: 1, label: 'Alpha' }] }));
+        return;
+      }
+
+      if (request.url === '/notes.txt') {
+        response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+        response.end('Plain text fixture.\nSecond line.');
+        return;
+      }
+
+      if (request.url === '/logo.png') {
+        response.writeHead(200, { 'content-type': 'image/png' });
+        response.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
+        return;
+      }
+
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(readFileSync(join(fixtures, 'static.html'), 'utf8'));
     });
@@ -105,6 +148,47 @@ describe('pipeline e2e', () => {
     expect(parsed.markdown).toContain('# Example Domain');
     expect(parsed.resources.links.length).toBeGreaterThan(0);
     expect(parsed.structured_data).toEqual([]);
+  });
+
+  it('extracts PDF text instead of treating it as HTML', async () => {
+    const result = await runPipeline(`${baseUrl}/document.pdf`, baseOptions);
+    const output = formatResult(result, baseOptions);
+
+    expect(result.ok).toBe(true);
+    expect(result.metadata.content_kind).toBe('pdf');
+    expect(result.metadata.page_count).toBe(1);
+    expect(result.metadata.byte_count).toBeGreaterThan(0);
+    expect(output).toContain('content_kind: pdf');
+    expect(output).toContain('page_count: 1');
+    expect(output).toContain('## Page 1');
+    expect(output).toContain('Hello from a PDF fixture.');
+    expect(output).not.toContain('## Page Resources');
+  });
+
+  it('renders RSS feeds as entry-oriented markdown', async () => {
+    const result = await runPipeline(`${baseUrl}/feed.xml`, { ...baseOptions, jsMode: 'auto' });
+
+    expect(result.ok).toBe(true);
+    expect(result.metadata.content_kind).toBe('feed');
+    expect(result.metadata.title).toBe('Fixture Feed');
+    expect(result.markdown).toContain('# Fixture Feed');
+    expect(result.markdown).toContain('## Entries');
+    expect(result.markdown).toContain(`### [First entry](${baseUrl}/first)`);
+    expect(result.markdown).toContain('Feed item & body.');
+  });
+
+  it('renders JSON, plain text, and image resources without HTML extraction', async () => {
+    const json = await runPipeline(`${baseUrl}/data.json`, { ...baseOptions, jsMode: 'auto', json: true });
+    const text = await runPipeline(`${baseUrl}/notes.txt`, baseOptions);
+    const image = await runPipeline(`${baseUrl}/logo.png`, baseOptions);
+    const jsonOutput = JSON.parse(formatResult(json, { ...baseOptions, json: true }));
+
+    expect(json.metadata.content_kind).toBe('json');
+    expect(jsonOutput.markdown).toContain('"name": "Fixture API"');
+    expect(text.metadata.content_kind).toBe('text');
+    expect(text.markdown).toContain('Plain text fixture.');
+    expect(image.metadata.content_kind).toBe('image');
+    expect(image.markdown).toContain(`![Logo](${baseUrl}/logo.png)`);
   });
 
   it('can omit default page resources', async () => {
@@ -203,4 +287,34 @@ function mockPlaywright(html: string, finalUrl: string): void {
       })),
     },
   }));
+}
+
+function makePdf(text: string): Buffer {
+  const escaped = text.replace(/[()\\]/g, '\\$&');
+  const content = `BT /F1 24 Tf 72 720 Td (${escaped}) Tj ET`;
+  const objects = [
+    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n',
+    '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+    `5 0 obj\n<< /Length ${Buffer.byteLength(content, 'latin1')} >>\nstream\n${content}\nendstream\nendobj\n`,
+  ];
+  let output = '%PDF-1.4\n';
+  const offsets: number[] = [];
+
+  for (const object of objects) {
+    offsets.push(Buffer.byteLength(output, 'latin1'));
+    output += object;
+  }
+
+  const xrefOffset = Buffer.byteLength(output, 'latin1');
+  output += `xref\n0 ${objects.length + 1}\n`;
+  output += '0000000000 65535 f \n';
+
+  for (const offset of offsets) {
+    output += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  }
+
+  output += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(output, 'latin1');
 }

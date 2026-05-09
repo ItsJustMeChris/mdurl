@@ -2,6 +2,8 @@ export type RenderMode = 'http' | 'js';
 
 export type JsMode = 'auto' | 'force' | 'disabled';
 
+export type ContentKind = 'html' | 'pdf' | 'feed' | 'json' | 'xml' | 'text' | 'image' | 'media' | 'binary';
+
 export interface HeaderPair {
   name: string;
   value: string;
@@ -53,6 +55,7 @@ export interface FetchResult {
   headers: Record<string, string>;
   contentType?: string;
   html: string;
+  body?: Uint8Array;
   redirectChain: string[];
   elapsedMs: number;
   renderMode: RenderMode;
@@ -181,6 +184,9 @@ export interface DocumentMetadata {
   elapsed_ms: number;
   word_count: number;
   content_type?: string;
+  content_kind?: ContentKind;
+  byte_count?: number;
+  page_count?: number;
   lang?: string;
   link_count?: number;
   image_count?: number;

@@ -4,13 +4,14 @@ import { detectSpa } from './fetch/detectSpa.js';
 import { fetchBrowser } from './fetch/browser.js';
 import { fetchPlain } from './fetch/plain.js';
 import { htmlToMarkdown, wordCount } from './convert/markdown.js';
+import { classifyContent, convertNonHtml } from './convert/nonHtml.js';
 import { appendPageResources, emptyPageResources, extractPageResources } from './convert/resources.js';
 import { appendStructuredData, extractStructuredData } from './convert/structuredData.js';
 import { extractHeadMetadata, type HeadMetadata } from './extract/head.js';
 import { extractContent } from './extract/readability.js';
 import { renderFrontmatter } from './output/frontmatter.js';
 import { renderJsonEnvelope } from './output/envelope.js';
-import type { CliOptions, DocumentMetadata, FetchResult, PageResources, PipelineResult } from './types.js';
+import type { CliOptions, ContentKind, DocumentMetadata, FetchResult, PageResources, PipelineResult } from './types.js';
 
 export async function runPipeline(url: string, options: CliOptions): Promise<PipelineResult> {
   const fetchedAt = new Date().toISOString();
@@ -24,6 +25,33 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
         url: result.url,
         contentType: result.contentType,
       });
+    }
+
+    const contentKind = classifyContent(result);
+    if (contentKind !== 'html') {
+      const byteCount = result.body?.byteLength;
+      const converted = await convertNonHtml(result, contentKind);
+      const truncated = truncateMarkdown(converted.markdown, options.maxBytes);
+      const metadata = buildMetadata(result, {
+        fetchedAt,
+        title: converted.title,
+        contentKind: converted.contentKind,
+        byteCount,
+        pageCount: converted.pageCount,
+        markdown: truncated.markdown,
+        truncated: truncated.truncated,
+        resources: emptyPageResources(),
+        structuredData: [],
+      });
+
+      return {
+        ok: true,
+        metadata,
+        markdown: truncated.markdown,
+        resources: emptyPageResources(),
+        structuredData: [],
+        exitCode: 0,
+      };
     }
 
     const head = extractHeadMetadata(result.html, result.url);
@@ -45,6 +73,8 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       fetchedAt,
       title: extracted.title || head.title,
       head,
+      contentKind,
+      byteCount: result.body?.byteLength,
       lang: extracted.lang,
       markdown: truncated.markdown,
       truncated: truncated.truncated,
@@ -121,6 +151,10 @@ async function fetchWithRendering(url: string, options: CliOptions): Promise<Fet
     return plain;
   }
 
+  if (classifyContent(plain) !== 'html') {
+    return plain;
+  }
+
   const detection = detectSpa(plain);
 
   if (!detection.isSpa) {
@@ -139,7 +173,10 @@ function buildMetadata(
   details: {
     fetchedAt: string;
     title?: string;
-    head: HeadMetadata;
+    head?: HeadMetadata;
+    contentKind?: ContentKind;
+    byteCount?: number;
+    pageCount?: number;
     lang?: string;
     markdown: string;
     truncated: boolean;
@@ -165,16 +202,28 @@ function buildMetadata(
     metadata.title = details.title;
   }
 
-  if (details.head.description) {
+  if (details.head?.description) {
     metadata.description = details.head.description;
   }
 
-  if (details.head.siteName) {
+  if (details.head?.siteName) {
     metadata.site_name = details.head.siteName;
   }
 
-  if (details.head.canonicalUrl) {
+  if (details.head?.canonicalUrl) {
     metadata.canonical_url = details.head.canonicalUrl;
+  }
+
+  if (details.contentKind) {
+    metadata.content_kind = details.contentKind;
+  }
+
+  if (details.byteCount !== undefined) {
+    metadata.byte_count = details.byteCount;
+  }
+
+  if (details.pageCount !== undefined) {
+    metadata.page_count = details.pageCount;
   }
 
   if (details.lang) {

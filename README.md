@@ -18,6 +18,8 @@ render_mode: http
 elapsed_ms: 120
 word_count: 21
 content_type: text/html
+content_kind: html
+byte_count: 1256
 description: A concise page summary from meta tags
 site_name: Example
 canonical_url: https://example.com/
@@ -75,6 +77,17 @@ mdurl install-browser
 | `--no-structured-data` | Omit the default `## Structured Data` section. |
 | `--max-bytes <n>` | Truncate markdown with a `[truncated]` marker. |
 
+HTML pages use Readability plus a cleaned full-page resource inventory. Non-HTML responses are handled before the HTML pipeline so agents do not receive binary or XML as mangled article text:
+
+| Content | Output |
+|---|---|
+| PDF | Extracted page text, PDF title when available, `content_kind: pdf`, `page_count`, and `byte_count`. |
+| RSS/Atom | Feed title, description, site link, and recent entries as markdown. |
+| JSON | Pretty-printed fenced `json` block. |
+| XML | Fenced `xml` block unless it is recognized as a feed. |
+| Plain text | Text body with source metadata. |
+| Image/audio/video/binary | Markdown resource stub with source URL and content type. |
+
 By default, `mdurl` appends a compact `## Structured Data` section when the page includes JSON-LD. This is useful on recipe, product, event, article, FAQ, Q&A, and local-business pages where the HTML may be noisy but the embedded schema contains concise facts such as ingredients, instructions, questions, answers, event dates, venues, performers, offers, ratings, authors, dates, and canonical images.
 
 Example:
@@ -112,6 +125,12 @@ Example:
 ```markdown
 ## Page Resources
 
+### Navigation
+
+| # | Area | Text | URL |
+|---:|---|---|---|
+| 1 | navigation | Menu | https://example.com/menu/ |
+
 ### Links
 
 | # | Context | Text | URL |
@@ -120,9 +139,9 @@ Example:
 
 ### Images
 
-| # | Context | Label | URL | Linked URL |
-|---:|---|---|---|---|
-| 1 | header/logo | [logo] Site logo | https://example.com/logo.png | https://example.com/ |
+| # | Context | Label | Source | URL | Linked URL |
+|---:|---|---|---|---|---|
+| 1 | header/logo | [logo] Site logo | img | https://example.com/logo.png | https://example.com/ |
 ```
 
 ### Output

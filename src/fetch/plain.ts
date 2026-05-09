@@ -98,7 +98,9 @@ async function responseToResult(
   redirectChain: string[],
   start: number,
 ): Promise<FetchResult> {
-  const html = await response.text();
+  const body = new Uint8Array(await response.arrayBuffer());
+  const contentType = response.headers.get('content-type') ?? undefined;
+  const html = decodeBody(body, contentType);
   const headers: Record<string, string> = {};
 
   response.headers.forEach((value, key) => {
@@ -111,12 +113,23 @@ async function responseToResult(
     status: response.status,
     statusText: response.statusText,
     headers,
-    contentType: response.headers.get('content-type') ?? undefined,
+    contentType,
     html,
+    body,
     redirectChain,
     elapsedMs: Date.now() - start,
     renderMode: 'http',
   };
+}
+
+function decodeBody(body: Uint8Array, contentType?: string): string {
+  const charset = contentType?.match(/\bcharset=([^;]+)/i)?.[1]?.trim().replace(/^["']|["']$/g, '');
+
+  try {
+    return new TextDecoder(charset || 'utf-8').decode(body);
+  } catch {
+    return new TextDecoder('utf-8').decode(body);
+  }
 }
 
 function isRedirect(status: number): boolean {
