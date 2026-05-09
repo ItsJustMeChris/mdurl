@@ -1,3 +1,4 @@
+import { parseHTML } from 'linkedom';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import { appendLinksTable, rewriteLinks } from './links.js';
@@ -8,7 +9,7 @@ export function htmlToMarkdown(
   baseUrl: string,
   options: { includeLinks: boolean },
 ): MarkdownResult {
-  const rewritten = rewriteLinks(html, baseUrl);
+  const rewritten = rewriteLinks(preserveMath(html), baseUrl);
   const turndown = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
@@ -19,6 +20,16 @@ export function htmlToMarkdown(
 
   turndown.use(gfm);
   turndown.remove(['script', 'style', 'template']);
+  turndown.addRule('preservedMath', {
+    filter: (node) => node.nodeType === 1 && (node as Element).hasAttribute('data-mdurl-math'),
+    replacement: (_content, node) => {
+      const element = node as Element;
+      const tex = decodeURIComponent(element.getAttribute('data-mdurl-tex') ?? '');
+      return element.getAttribute('data-mdurl-math') === 'display'
+        ? `\n\n$$\n${tex}\n$$\n\n`
+        : `$${tex}$`;
+    },
+  });
   turndown.addRule('fencedCodeWithLanguage', {
     filter: (node) => isLanguageCodeBlock(node as Element),
     replacement: (_content, node) => codeBlockToMarkdown(node as Element),
@@ -60,6 +71,50 @@ function normalizeMarkdown(markdown: string): string {
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()}\n`;
+}
+
+function preserveMath(html: string): string {
+  const { document } = parseHTML(html);
+
+  for (const script of Array.from(document.querySelectorAll('script[type^="math/tex"]'))) {
+    const tex = script.textContent?.trim();
+    if (!tex) {
+      continue;
+    }
+
+    replaceWithMath(script, tex, /mode\s*=\s*display/i.test(script.getAttribute('type') ?? ''));
+  }
+
+  for (const katex of Array.from(document.querySelectorAll('.katex'))) {
+    const tex = mathAnnotation(katex);
+    if (tex) {
+      replaceWithMath(katex, tex, Boolean(katex.closest('.katex-display')));
+    }
+  }
+
+  for (const math of Array.from(document.querySelectorAll('math'))) {
+    const tex = mathAnnotation(math);
+    if (tex) {
+      replaceWithMath(math, tex, Boolean(math.closest('.katex-display, [display="block"]')));
+    }
+  }
+
+  return document.toString();
+}
+
+function mathAnnotation(math: Element): string | undefined {
+  const annotation = Array.from(math.querySelectorAll('annotation')).find((element) =>
+    /(?:x-tex|x-latex|tex|latex)$/i.test(element.getAttribute('encoding') ?? ''),
+  );
+  return annotation?.textContent?.trim() || undefined;
+}
+
+function replaceWithMath(element: Element, tex: string, display: boolean): void {
+  const replacement = element.ownerDocument.createElement(display ? 'div' : 'span');
+  replacement.setAttribute('data-mdurl-math', display ? 'display' : 'inline');
+  replacement.setAttribute('data-mdurl-tex', encodeURIComponent(tex));
+  replacement.textContent = display ? `$$\n${tex}\n$$` : `$${tex}$`;
+  element.replaceWith(replacement);
 }
 
 function promoteCodeLanguageLabels(markdown: string): string {

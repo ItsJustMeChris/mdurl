@@ -80,4 +80,31 @@ describe('htmlToMarkdown', () => {
     expect(result.markdown).toContain('```ts\nconst value: string = "typed";');
     expect(result.markdown).toContain('```sh\nnpm test');
   });
+
+  it('preserves TeX from MathJax and KaTeX markup', () => {
+    const result = htmlToMarkdown(
+      `
+        <p>Inline math <script type="math/tex">E=mc^2</script> stays readable.</p>
+        <script type="math/tex; mode=display">\\int_0^1 x^2 dx</script>
+        <span class="katex">
+          <span class="katex-mathml">
+            <math>
+              <semantics>
+                <mrow><mi>x</mi></mrow>
+                <annotation encoding="application/x-tex">x^2 + y^2</annotation>
+              </semantics>
+            </math>
+          </span>
+          <span class="katex-html">visual tokens</span>
+        </span>
+      `,
+      'https://example.com/',
+      { includeLinks: false },
+    );
+
+    expect(result.markdown).toContain('$E=mc^2$');
+    expect(result.markdown).toContain('$$\n\\int_0^1 x^2 dx\n$$');
+    expect(result.markdown).toContain('$x^2 + y^2$');
+    expect(result.markdown).not.toContain('visual tokens');
+  });
 });
