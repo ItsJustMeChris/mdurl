@@ -200,6 +200,16 @@ describe('pipeline e2e', () => {
         return;
       }
 
+      if (request.url === '/google-sorry') {
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end(
+          '<!doctype html><html><body><main><h1>About this page</h1><p>' +
+            "Our systems have detected unusual traffic from your computer network. This page checks to see if it's " +
+            'really you sending the requests, and not a robot.</p></main></body></html>',
+        );
+        return;
+      }
+
       if (request.url === '/paywall') {
         response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         response.end('<!doctype html><html><body><main><h1>Subscriber Article</h1><p>Subscribe to continue reading this article.</p></main></body></html>');
@@ -449,6 +459,13 @@ describe('pipeline e2e', () => {
     expect(result.metadata.access_status).toBe('bot_challenge');
     expect(result.metadata.error).toContain('bot challenge detected');
     expect(output).toContain('access_status: bot_challenge');
+  });
+
+  it('flags explicit bot challenge pages even when they return 200', async () => {
+    const result = await runPipeline(`${baseUrl}/google-sorry`, baseOptions);
+
+    expect(result.ok).toBe(true);
+    expect(result.metadata.access_status).toBe('bot_challenge');
   });
 
   it('flags paywalls and login walls on successful pages', async () => {

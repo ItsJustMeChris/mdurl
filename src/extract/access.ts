@@ -83,9 +83,16 @@ function isBotChallenge(html: string, text: string, status: number): boolean {
     /\bcf-challenge\b/,
     /\bturnstile\b.*\bchallenge\b/,
     /\benable javascript and cookies to continue\b/,
+    /\bour systems have detected unusual traffic\b/,
+    /\bthis page checks to see if it's really you\b.*\bnot a robot\b/,
   ];
+  const challengeStatus = status === 403 || status === 429 || status === 503;
+  const explicitChallengePage = [
+    /\bour systems have detected unusual traffic\b/,
+    /\bthis page checks to see if it's really you\b.*\bnot a robot\b/,
+  ].some((pattern) => pattern.test(signature));
 
-  return (status === 403 || status === 429 || status === 503) && challengePatterns.some((pattern) => pattern.test(signature));
+  return (challengeStatus || explicitChallengePage) && challengePatterns.some((pattern) => pattern.test(signature));
 }
 
 function isPaywall(text: string): boolean {

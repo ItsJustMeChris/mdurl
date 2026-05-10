@@ -7,6 +7,7 @@ const DEFAULT_SETTLE_MS = 800;
 const DOM_STABLE_MS = 150;
 const MIN_MEANINGFUL_TEXT_LENGTH = 80;
 const BLOCKED_RESOURCE_TYPES = new Set(['image', 'media', 'font']);
+const BROWSER_LAUNCH_ARGS = ['--disable-blink-features=AutomationControlled'];
 
 const COMMON_CHROME_PATHS = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -45,6 +46,7 @@ export async function createBrowserSession(options: BrowserFetchOptions, launchU
     browser = await chromium.launch({
       headless: true,
       executablePath,
+      args: BROWSER_LAUNCH_ARGS,
     });
   } catch (error) {
     throw new MdurlError('browser', browserInstallMessage(error), { url: launchUrl, cause: error });

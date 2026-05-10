@@ -65,6 +65,10 @@ describe('createBrowserSession', () => {
     await session.close();
 
     expect(launch).toHaveBeenCalledTimes(1);
+    expect(launch).toHaveBeenCalledWith(expect.objectContaining({
+      args: expect.arrayContaining(['--disable-blink-features=AutomationControlled']),
+      headless: true,
+    }));
     expect(context.route).toHaveBeenCalledWith('**/*', expect.any(Function));
     expect(context.newPage).toHaveBeenCalledTimes(2);
     expect(page.waitForFunction).toHaveBeenCalledTimes(2);
