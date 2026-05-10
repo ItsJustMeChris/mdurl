@@ -16,9 +16,50 @@ export function buildProgram(): Command {
     .name('mdurl')
     .description('Fetch a webpage or web search and emit clean markdown for agents.')
     .version('0.1.0')
-    .argument('[urls...]', 'URL(s) to fetch')
-    .option('--search <terms>', 'search the web and emit cleaned search results')
-    .option('--engine <name>', 'search engine for --search: google, bing, or duckduckgo', 'google')
+    .enablePositionalOptions()
+    .argument('[urls...]', 'URL(s) to fetch');
+
+  addCommonOptions(program)
+    .action(async (urls: string[], rawOptions: RawCommandOptions) => {
+      if (urls.length === 0) {
+        program.help({ error: true });
+        return;
+      }
+
+      await runUrlCommand(urls, rawOptions);
+    });
+
+  const searchCommand = addCommonOptions(
+    program
+      .command('search')
+      .description('Search the web and emit cleaned search results.')
+      .argument('<terms...>', 'search query terms')
+      .option('--engine <name>', 'search engine: google, bing, or duckduckgo', 'google'),
+  );
+
+  searchCommand.action(async (terms: string[], rawOptions: RawCommandOptions) => {
+    const query = terms.join(' ').trim();
+    if (!query) {
+      searchCommand.help({ error: true });
+      return;
+    }
+
+    await runSearchCommand(query, rawOptions);
+  });
+
+  program
+    .command('install-browser')
+    .description('Download Chromium for Playwright browser rendering.')
+    .action(async () => {
+      const { installBrowser } = await import('./installBrowser.js');
+      await installBrowser();
+    });
+
+  return program;
+}
+
+function addCommonOptions(command: Command): Command {
+  return command
     .option('--timeout <ms>', 'request timeout in milliseconds', parsePositiveInteger, 30_000)
     .option('-H, --header <k:v>', 'extra request header; repeatable', collectHeader, [])
     .option('--cookie <str>', 'Cookie header value')
@@ -47,68 +88,67 @@ export function buildProgram(): Command {
     .option('--json', 'emit a JSON envelope')
     .option('--no-frontmatter', 'emit markdown body only')
     .option('-o, --output <file>', 'write output to a file')
-    .option('--quiet', 'suppress stderr progress lines')
-    .action(async (urls: string[], rawOptions: RawCommandOptions) => {
-      const searchQuery = rawOptions.search?.trim();
+    .option('--quiet', 'suppress stderr progress lines');
+}
 
-      if (urls.length === 0 && !searchQuery) {
-        program.help({ error: true });
-        return;
+async function runUrlCommand(urls: string[], rawOptions: RawCommandOptions): Promise<void> {
+  const options = normalizeOptions(rawOptions);
+  const [{ createBrowserSession }, { formatResult, runPipeline, writeResult }, { jsonEnvelopeObject }] =
+    await Promise.all([import('./fetch/browser.js'), import('./pipeline.js'), import('./output/envelope.js')]);
+  let browserSession: BrowserSession | undefined;
+  let browserSessionPromise: Promise<BrowserSession> | undefined;
+
+  if (urls.length > 1 && options.jsMode !== 'disabled') {
+    options.getBrowserSession = async () => {
+      browserSessionPromise ??= createBrowserSession(options).then((session) => {
+        browserSession = session;
+        return session;
+      });
+      return browserSessionPromise;
+    };
+  }
+
+  let results: PipelineResult[] = [];
+
+  try {
+    results = await mapConcurrent(urls, rawOptions.concurrency, (url) => runPipeline(url, options));
+  } finally {
+    await browserSession?.close();
+  }
+
+  await emitCliResults(results, options, formatResult, jsonEnvelopeObject, writeResult);
+}
+
+async function runSearchCommand(query: string, rawOptions: RawCommandOptions): Promise<void> {
+  const options = normalizeOptions(rawOptions);
+  const [{ formatResult, runSearchPipeline, writeResult }, { jsonEnvelopeObject }] = await Promise.all([
+    import('./pipeline.js'),
+    import('./output/envelope.js'),
+  ]);
+  const results = [await runSearchPipeline(query, options)];
+
+  await emitCliResults(results, options, formatResult, jsonEnvelopeObject, writeResult);
+}
+
+async function emitCliResults(
+  results: PipelineResult[],
+  options: CliOptions,
+  formatResult: FormatResult,
+  jsonEnvelopeObject: JsonEnvelopeObject,
+  writeResult: typeof import('./pipeline.js').writeResult,
+): Promise<void> {
+  const output = formatCliResults(results, options, formatResult, jsonEnvelopeObject);
+  await writeResult(output, options);
+
+  if (!options.quiet && !options.output) {
+    for (const result of results) {
+      if (!result.ok) {
+        process.stderr.write(`mdurl: ${result.metadata.url}: ${result.metadata.error}\n`);
       }
+    }
+  }
 
-      if (searchQuery && urls.length > 0) {
-        throw new Error('--search cannot be combined with URL arguments');
-      }
-
-      const options = normalizeOptions(rawOptions);
-      const [{ createBrowserSession }, { formatResult, runPipeline, runSearchPipeline, writeResult }, { jsonEnvelopeObject }] =
-        await Promise.all([import('./fetch/browser.js'), import('./pipeline.js'), import('./output/envelope.js')]);
-      let browserSession: BrowserSession | undefined;
-      let browserSessionPromise: Promise<BrowserSession> | undefined;
-
-      if (urls.length > 1 && options.jsMode !== 'disabled') {
-        options.getBrowserSession = async () => {
-          browserSessionPromise ??= createBrowserSession(options).then((session) => {
-            browserSession = session;
-            return session;
-          });
-          return browserSessionPromise;
-        };
-      }
-
-      let results: PipelineResult[] = [];
-
-      try {
-        results = searchQuery
-          ? [await runSearchPipeline(searchQuery, options)]
-          : await mapConcurrent(urls, rawOptions.concurrency, (url) => runPipeline(url, options));
-      } finally {
-        await browserSession?.close();
-      }
-
-      const output = formatCliResults(results, options, formatResult, jsonEnvelopeObject);
-      await writeResult(output, options);
-
-      if (!options.quiet && !options.output) {
-        for (const result of results) {
-          if (!result.ok) {
-            process.stderr.write(`mdurl: ${result.metadata.url}: ${result.metadata.error}\n`);
-          }
-        }
-      }
-
-      process.exitCode = Math.max(...results.map((result) => result.exitCode));
-    });
-
-  program
-    .command('install-browser')
-    .description('Download Chromium for Playwright browser rendering.')
-    .action(async () => {
-      const { installBrowser } = await import('./installBrowser.js');
-      await installBrowser();
-    });
-
-  return program;
+  process.exitCode = Math.max(...results.map((result) => result.exitCode));
 }
 
 export async function main(argv = process.argv): Promise<void> {
@@ -178,8 +218,7 @@ function formatCliResults(
 }
 
 interface RawCommandOptions {
-  search?: string;
-  engine: string;
+  engine?: string;
   timeout: number;
   header: HeaderPair[];
   cookie?: string;
@@ -227,7 +266,7 @@ function normalizeOptions(raw: RawCommandOptions): CliOptions {
     waitMs: raw.waitMs,
     browserPath: raw.browserPath,
     loadAssets: Boolean(raw.loadAssets),
-    searchEngine: normalizeSearchEngine(raw.engine),
+    searchEngine: normalizeSearchEngine(raw.engine ?? 'google'),
     full: Boolean(raw.full),
     selector: raw.selector,
     section: raw.section,

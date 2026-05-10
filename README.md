@@ -33,7 +33,7 @@ canonical_url: https://example.com/
 ```sh
 mdurl <url> [options]
 mdurl <url1> <url2> [options]
-mdurl --search "terms" [--engine google|bing|duckduckgo]
+mdurl search "terms" [--engine google|bing|duckduckgo]
 mdurl install-browser
 mdurl --version
 mdurl --help
@@ -43,20 +43,20 @@ When multiple URLs are provided, mdurl fetches them concurrently while preservin
 
 ### Search
 
-`--search` emits normalized search-result markdown instead of a raw search-engine page scrape. The default engine is Google; Bing and DuckDuckGo are also supported.
+`mdurl search` emits normalized search-result markdown instead of a raw search-engine page scrape. The default engine is Google; Bing and DuckDuckGo are also supported.
 
 ```sh
-mdurl --search "weather mke"
-mdurl --search "weather mke" --engine bing
-mdurl --search "weather mke" --engine duckduckgo
+mdurl search "weather mke"
+mdurl search "weather mke" --engine bing
+mdurl search "weather mke" --engine duckduckgo
 ```
 
 Search output uses `content_kind: search`, records `search_engine`, `search_query`, and `result_count`, unwraps engine tracking URLs, and renders organic results as clean linked headings with source URLs and snippets. Google and Bing search mode use browser rendering by default when JavaScript is allowed; DuckDuckGo uses its lightweight HTML endpoint first and falls back to browser rendering if needed.
 
 | Flag | Default | Description |
 |---|---:|---|
-| `--search <terms>` | | Search the web and emit cleaned search results. |
-| `--engine <name>` | `google` | Search engine for `--search`: `google`, `bing`, or `duckduckgo`. Aliases include `g`, `b`, `ddg`, and `duck`. |
+| `mdurl search <terms...>` | | Search the web and emit cleaned search results. |
+| `--engine <name>` | `google` | Search engine for `mdurl search`: `google`, `bing`, or `duckduckgo`. Aliases include `g`, `b`, `ddg`, and `duck`. |
 
 ### Fetching
 

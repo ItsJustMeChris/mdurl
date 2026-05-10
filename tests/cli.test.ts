@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapConcurrent } from '../src/cli.js';
+import { buildProgram, mapConcurrent } from '../src/cli.js';
 
 describe('mapConcurrent', () => {
   it('preserves result order while capping active work', async () => {
@@ -16,6 +16,42 @@ describe('mapConcurrent', () => {
 
     expect(results).toEqual([0, 1, 2, 3]);
     expect(maxActive).toBe(2);
+  });
+});
+
+describe('buildProgram', () => {
+  it('exposes search as a subcommand instead of a root option', () => {
+    const program = buildProgram();
+    const searchCommand = program.commands.find((command) => command.name() === 'search');
+
+    expect(searchCommand).toBeDefined();
+    expect(program.helpInformation()).not.toContain('--search');
+    expect(searchCommand?.helpInformation()).toContain('--engine <name>');
+  });
+
+  it('parses search options after the query terms', async () => {
+    const program = buildProgram();
+    const searchCommand = program.commands.find((command) => command.name() === 'search');
+    let parsed:
+      | {
+          terms: string[];
+          options: { engine?: string; maxBytes?: number };
+        }
+      | undefined;
+
+    searchCommand?.action((terms: string[], options: { engine?: string; maxBytes?: number }) => {
+      parsed = { terms, options };
+    });
+
+    await program.parseAsync(
+      ['node', 'mdurl', 'search', 'weather', 'mke', '--engine', 'bing', '--max-bytes', '100'],
+      { from: 'node' },
+    );
+
+    expect(parsed).toEqual({
+      terms: ['weather', 'mke'],
+      options: expect.objectContaining({ engine: 'bing', maxBytes: 100 }),
+    });
   });
 });
 
