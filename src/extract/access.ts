@@ -85,11 +85,15 @@ function isBotChallenge(html: string, text: string, status: number): boolean {
     /\benable javascript and cookies to continue\b/,
     /\bour systems have detected unusual traffic\b/,
     /\bthis page checks to see if it's really you\b.*\bnot a robot\b/,
+    /\bone last step\b.*\bsolve the challenge\b/,
+    /\bbots use duckduckgo too\b/,
   ];
   const challengeStatus = status === 403 || status === 429 || status === 503;
   const explicitChallengePage = [
     /\bour systems have detected unusual traffic\b/,
     /\bthis page checks to see if it's really you\b.*\bnot a robot\b/,
+    /\bone last step\b.*\bsolve the challenge\b/,
+    /\bbots use duckduckgo too\b/,
   ].some((pattern) => pattern.test(signature));
 
   return (challengeStatus || explicitChallengePage) && challengePatterns.some((pattern) => pattern.test(signature));

@@ -18,6 +18,8 @@ import { renderFrontmatter } from './output/frontmatter.js';
 import { renderJsonEnvelope } from './output/envelope.js';
 import type { CliOptions, ContentKind, DocumentMetadata, FetchResult, PageResources, PipelineResult } from './types.js';
 
+export { runSearchPipeline } from './search.js';
+
 interface FetchContext {
   result: FetchResult;
   contentKind: ContentKind;

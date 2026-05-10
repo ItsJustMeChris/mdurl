@@ -81,6 +81,8 @@ export async function convertNonHtml(result: FetchResult, contentKind: ContentKi
       return convertMedia(result);
     case 'binary':
       return convertBinary(result);
+    case 'search':
+      throw new Error('Search content should use the search pipeline');
     case 'html':
       throw new Error('HTML content should use the HTML pipeline');
   }

@@ -1,7 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Command, InvalidArgumentError } from 'commander';
-import type { BrowserSession, CliOptions, HeaderPair, JsMode, PipelineResult } from './types.js';
+import type { BrowserSession, CliOptions, HeaderPair, JsMode, PipelineResult, SearchEngine } from './types.js';
 
 type FormatResult = typeof import('./pipeline.js').formatResult;
 type JsonEnvelopeObject = typeof import('./output/envelope.js').jsonEnvelopeObject;
@@ -14,9 +14,11 @@ export function buildProgram(): Command {
 
   program
     .name('mdurl')
-    .description('Fetch a webpage and emit clean markdown for agents.')
+    .description('Fetch a webpage or web search and emit clean markdown for agents.')
     .version('0.1.0')
     .argument('[urls...]', 'URL(s) to fetch')
+    .option('--search <terms>', 'search the web and emit cleaned search results')
+    .option('--engine <name>', 'search engine for --search: google, bing, or duckduckgo', 'google')
     .option('--timeout <ms>', 'request timeout in milliseconds', parsePositiveInteger, 30_000)
     .option('-H, --header <k:v>', 'extra request header; repeatable', collectHeader, [])
     .option('--cookie <str>', 'Cookie header value')
@@ -47,13 +49,19 @@ export function buildProgram(): Command {
     .option('-o, --output <file>', 'write output to a file')
     .option('--quiet', 'suppress stderr progress lines')
     .action(async (urls: string[], rawOptions: RawCommandOptions) => {
-      if (urls.length === 0) {
+      const searchQuery = rawOptions.search?.trim();
+
+      if (urls.length === 0 && !searchQuery) {
         program.help({ error: true });
         return;
       }
 
+      if (searchQuery && urls.length > 0) {
+        throw new Error('--search cannot be combined with URL arguments');
+      }
+
       const options = normalizeOptions(rawOptions);
-      const [{ createBrowserSession }, { formatResult, runPipeline, writeResult }, { jsonEnvelopeObject }] =
+      const [{ createBrowserSession }, { formatResult, runPipeline, runSearchPipeline, writeResult }, { jsonEnvelopeObject }] =
         await Promise.all([import('./fetch/browser.js'), import('./pipeline.js'), import('./output/envelope.js')]);
       let browserSession: BrowserSession | undefined;
       let browserSessionPromise: Promise<BrowserSession> | undefined;
@@ -71,7 +79,9 @@ export function buildProgram(): Command {
       let results: PipelineResult[] = [];
 
       try {
-        results = await mapConcurrent(urls, rawOptions.concurrency, (url) => runPipeline(url, options));
+        results = searchQuery
+          ? [await runSearchPipeline(searchQuery, options)]
+          : await mapConcurrent(urls, rawOptions.concurrency, (url) => runPipeline(url, options));
       } finally {
         await browserSession?.close();
       }
@@ -168,6 +178,8 @@ function formatCliResults(
 }
 
 interface RawCommandOptions {
+  search?: string;
+  engine: string;
   timeout: number;
   header: HeaderPair[];
   cookie?: string;
@@ -215,6 +227,7 @@ function normalizeOptions(raw: RawCommandOptions): CliOptions {
     waitMs: raw.waitMs,
     browserPath: raw.browserPath,
     loadAssets: Boolean(raw.loadAssets),
+    searchEngine: normalizeSearchEngine(raw.engine),
     full: Boolean(raw.full),
     selector: raw.selector,
     section: raw.section,
@@ -228,6 +241,23 @@ function normalizeOptions(raw: RawCommandOptions): CliOptions {
     output: raw.output,
     quiet: Boolean(raw.quiet),
   };
+}
+
+function normalizeSearchEngine(value: string): SearchEngine {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'google' || normalized === 'g') {
+    return 'google';
+  }
+
+  if (normalized === 'bing' || normalized === 'b') {
+    return 'bing';
+  }
+
+  if (normalized === 'duckduckgo' || normalized === 'duckduckgo.com' || normalized === 'duck' || normalized === 'ddg') {
+    return 'duckduckgo';
+  }
+
+  throw new InvalidArgumentError('Expected search engine: google, bing, or duckduckgo');
 }
 
 function normalizeJsMode(raw: RawCommandOptions): JsMode {

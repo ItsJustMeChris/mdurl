@@ -2,8 +2,11 @@ export type RenderMode = 'http' | 'js';
 
 export type JsMode = 'auto' | 'force' | 'disabled';
 
+export type SearchEngine = 'google' | 'bing' | 'duckduckgo';
+
 export type ContentKind =
   | 'html'
+  | 'search'
   | 'pdf'
   | 'feed'
   | 'sitemap'
@@ -35,6 +38,7 @@ export interface CliOptions {
   waitMs: number;
   browserPath?: string;
   loadAssets?: boolean;
+  searchEngine: SearchEngine;
   full: boolean;
   selector?: string;
   section?: string;
@@ -235,6 +239,9 @@ export interface DocumentMetadata {
   word_count: number;
   content_type?: string;
   content_kind?: ContentKind;
+  search_engine?: SearchEngine;
+  search_query?: string;
+  result_count?: number;
   byte_count?: number;
   page_count?: number;
   cache_status?: 'hit' | 'miss' | 'revalidated';

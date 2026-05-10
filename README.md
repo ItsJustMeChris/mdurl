@@ -1,6 +1,6 @@
 # mdurl
 
-`mdurl` is a curl-shaped CLI that fetches a webpage and emits clean markdown with small, predictable metadata. It is designed as a default "read a webpage" primitive for coding agents and other LLM tools.
+`mdurl` is a curl-shaped CLI that fetches a webpage or web search and emits clean markdown with small, predictable metadata. It is designed as a default "read a webpage" primitive for coding agents and other LLM tools.
 
 ```sh
 npx mdurl https://example.com
@@ -33,12 +33,30 @@ canonical_url: https://example.com/
 ```sh
 mdurl <url> [options]
 mdurl <url1> <url2> [options]
+mdurl --search "terms" [--engine google|bing|duckduckgo]
 mdurl install-browser
 mdurl --version
 mdurl --help
 ```
 
 When multiple URLs are provided, mdurl fetches them concurrently while preserving output order. Markdown/frontmatter outputs are concatenated with `<!-- mdurl-next-url -->` separators. With `--json`, output is a JSON array of envelopes. In browser mode, batched URLs reuse one Chromium session.
+
+### Search
+
+`--search` emits normalized search-result markdown instead of a raw search-engine page scrape. The default engine is Google; Bing and DuckDuckGo are also supported.
+
+```sh
+mdurl --search "weather mke"
+mdurl --search "weather mke" --engine bing
+mdurl --search "weather mke" --engine duckduckgo
+```
+
+Search output uses `content_kind: search`, records `search_engine`, `search_query`, and `result_count`, unwraps engine tracking URLs, and renders organic results as clean linked headings with source URLs and snippets. Google and Bing search mode use browser rendering by default when JavaScript is allowed; DuckDuckGo uses its lightweight HTML endpoint first and falls back to browser rendering if needed.
+
+| Flag | Default | Description |
+|---|---:|---|
+| `--search <terms>` | | Search the web and emit cleaned search results. |
+| `--engine <name>` | `google` | Search engine for `--search`: `google`, `bing`, or `duckduckgo`. Aliases include `g`, `b`, `ddg`, and `duck`. |
 
 ### Fetching
 
@@ -120,6 +138,7 @@ HTML pages use Readability plus a cleaned full-page resource inventory. Non-HTML
 | PDF | Extracted page text, PDF title when available, `content_kind: pdf`, `page_count`, and `byte_count`. |
 | RSS/Atom | Feed title, description, site link, and recent entries as markdown. |
 | Sitemap XML | URL lists with last-modified dates when present. |
+| Search | Cleaned organic result list, unwrapped URLs, source labels, snippets, and `result_count`. |
 | JSON | Pretty-printed fenced `json` block. |
 | XML | Fenced `xml` block unless it is recognized as a feed. |
 | Plain text | Text body with source metadata. |

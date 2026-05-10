@@ -18,6 +18,7 @@ const baseOptions: CliOptions = {
   archiveFallback: false,
   jsMode: 'disabled',
   waitMs: 0,
+  searchEngine: 'google',
   full: false,
   includeLinks: false,
   resources: true,
