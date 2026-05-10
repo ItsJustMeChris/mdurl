@@ -10,15 +10,6 @@ import type {
   PageResources,
 } from '../types.js';
 
-const EMPTY_RESOURCES: PageResources = {
-  headings: [],
-  pagination: [],
-  links: [],
-  images: [],
-  forms: [],
-  embeds: [],
-};
-
 const NON_RENDERED_RESOURCE_SELECTORS = [
   'script',
   'style',
@@ -43,20 +34,24 @@ export function emptyPageResources(): PageResources {
 
 export function extractPageResources(html: string, baseUrl: string): PageResources {
   const { document } = parseHTML(html);
+  return extractPageResourcesFromDocument(document, baseUrl);
+}
 
+export function extractPageResourcesFromDocument(document: Document, baseUrl: string): PageResources {
   if (!document.documentElement) {
-    return EMPTY_RESOURCES;
+    return emptyPageResources();
   }
 
-  removeNonRenderedResourceNodes(document);
+  const resourceDocument = document.cloneNode(true) as Document;
+  removeNonRenderedResourceNodes(resourceDocument);
 
   return {
-    headings: extractHeadings(document, baseUrl),
-    pagination: extractPagination(document, baseUrl),
-    links: extractLinks(document, baseUrl),
-    images: extractImages(document, baseUrl),
-    forms: extractForms(document, baseUrl),
-    embeds: extractEmbeds(document, baseUrl),
+    headings: extractHeadings(resourceDocument, baseUrl),
+    pagination: extractPagination(resourceDocument, baseUrl),
+    links: extractLinks(resourceDocument, baseUrl),
+    images: extractImages(resourceDocument, baseUrl),
+    forms: extractForms(resourceDocument, baseUrl),
+    embeds: extractEmbeds(resourceDocument, baseUrl),
   };
 }
 

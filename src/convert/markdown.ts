@@ -1,7 +1,7 @@
 import { parseHTML } from 'linkedom';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
-import { appendLinksTable, rewriteLinks } from './links.js';
+import { appendLinksTable, rewriteLinksInElement } from './links.js';
 import type { MarkdownResult } from '../types.js';
 
 export function htmlToMarkdown(
@@ -9,7 +9,12 @@ export function htmlToMarkdown(
   baseUrl: string,
   options: { includeLinks: boolean },
 ): MarkdownResult {
-  const rewritten = rewriteLinks(preserveMath(html), baseUrl);
+  const { document } = parseHTML(`<main>${html}</main>`);
+  const root = document.querySelector('main');
+  if (root) {
+    preserveMathInElement(root);
+  }
+  const rewritten = root ? rewriteLinksInElement(root, baseUrl) : { html, links: [] };
   const turndown = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
@@ -73,10 +78,8 @@ function normalizeMarkdown(markdown: string): string {
     .trim()}\n`;
 }
 
-function preserveMath(html: string): string {
-  const { document } = parseHTML(html);
-
-  for (const script of Array.from(document.querySelectorAll('script[type^="math/tex"]'))) {
+function preserveMathInElement(root: ParentNode): void {
+  for (const script of Array.from(root.querySelectorAll('script[type^="math/tex"]'))) {
     const tex = script.textContent?.trim();
     if (!tex) {
       continue;
@@ -85,21 +88,19 @@ function preserveMath(html: string): string {
     replaceWithMath(script, tex, /mode\s*=\s*display/i.test(script.getAttribute('type') ?? ''));
   }
 
-  for (const katex of Array.from(document.querySelectorAll('.katex'))) {
+  for (const katex of Array.from(root.querySelectorAll('.katex'))) {
     const tex = mathAnnotation(katex);
     if (tex) {
       replaceWithMath(katex, tex, Boolean(katex.closest('.katex-display')));
     }
   }
 
-  for (const math of Array.from(document.querySelectorAll('math'))) {
+  for (const math of Array.from(root.querySelectorAll('math'))) {
     const tex = mathAnnotation(math);
     if (tex) {
       replaceWithMath(math, tex, Boolean(math.closest('.katex-display, [display="block"]')));
     }
   }
-
-  return document.toString();
 }
 
 function mathAnnotation(math: Element): string | undefined {

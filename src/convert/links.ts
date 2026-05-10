@@ -4,12 +4,17 @@ import type { LinkReference } from '../types.js';
 export function rewriteLinks(html: string, baseUrl: string): { html: string; links: LinkReference[] } {
   const { document } = parseHTML(`<main>${html}</main>`);
   const root = document.querySelector('main');
-  const links: LinkReference[] = [];
-  const seen = new Set<string>();
 
   if (!root) {
-    return { html, links };
+    return { html, links: [] };
   }
+
+  return rewriteLinksInElement(root, baseUrl);
+}
+
+export function rewriteLinksInElement(root: Element, baseUrl: string): { html: string; links: LinkReference[] } {
+  const links: LinkReference[] = [];
+  const seen = new Set<string>();
 
   for (const anchor of Array.from(root.querySelectorAll('a[href]'))) {
     const rawHref = anchor.getAttribute('href');

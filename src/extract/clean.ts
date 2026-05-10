@@ -16,8 +16,19 @@ const REMOVE_SELECTORS = [
   '[style*="display: none"]',
 ];
 
-export function cleanHtml(html: string, baseUrl: string, selector?: string): { html: string; textContent: string; title?: string; lang?: string } {
+export interface CleanedHtml {
+  html: string;
+  textContent: string;
+  title?: string;
+  lang?: string;
+}
+
+export function cleanHtml(html: string, baseUrl: string, selector?: string): CleanedHtml {
   const { document } = parseHTML(html);
+  return cleanDocument(document, baseUrl, selector);
+}
+
+export function cleanDocument(document: Document, baseUrl: string, selector?: string): CleanedHtml {
   const scoped = selector ? document.querySelector(selector) : document.body;
 
   if (!scoped) {

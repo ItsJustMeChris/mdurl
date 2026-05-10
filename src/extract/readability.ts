@@ -1,6 +1,6 @@
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
-import { cleanHtml, normalizeResourceUrls } from './clean.js';
+import { cleanDocument, normalizeResourceUrls } from './clean.js';
 import type { ExtractedContent } from '../types.js';
 
 export function extractContent(
@@ -8,13 +8,21 @@ export function extractContent(
   baseUrl: string,
   options: { full: boolean; selector?: string },
 ): ExtractedContent {
+  const { document } = parseHTML(html);
+  return extractContentFromDocument(document, baseUrl, options);
+}
+
+export function extractContentFromDocument(
+  document: Document,
+  baseUrl: string,
+  options: { full: boolean; selector?: string },
+): ExtractedContent {
   if (options.full || options.selector) {
-    return cleanHtml(html, baseUrl, options.selector);
+    return cleanDocument(document, baseUrl, options.selector);
   }
 
-  const { document } = parseHTML(html);
   const lang = document.documentElement.getAttribute('lang') || undefined;
-  const cleaned = cleanHtml(html, baseUrl);
+  const cleaned = cleanDocument(document, baseUrl);
   const clone = document.cloneNode(true) as Document;
   const article = new Readability(clone, { keepClasses: false }).parse();
 

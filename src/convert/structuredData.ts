@@ -7,6 +7,10 @@ const MAX_LIST_ITEMS = 40;
 
 export function extractStructuredData(html: string, baseUrl: string): StructuredDataItem[] {
   const { document } = parseHTML(html);
+  return extractStructuredDataFromDocument(document, baseUrl);
+}
+
+export function extractStructuredDataFromDocument(document: Document, baseUrl: string): StructuredDataItem[] {
   const items: StructuredDataItem[] = [];
   const seen = new Set<string>();
 

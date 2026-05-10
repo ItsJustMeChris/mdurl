@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises';
+import { parseHTML } from 'linkedom';
 import { MdurlError, normalizeError } from './errors.js';
 import { fetchArchiveSnapshot } from './fetch/archive.js';
 import { detectSpa } from './fetch/detectSpa.js';
@@ -6,29 +7,37 @@ import { fetchBrowser } from './fetch/browser.js';
 import { fetchPlain } from './fetch/plain.js';
 import { htmlToMarkdown, wordCount } from './convert/markdown.js';
 import { classifyContent, convertNonHtml } from './convert/nonHtml.js';
-import { appendPageResources, emptyPageResources, extractPageResources } from './convert/resources.js';
+import { appendPageResources, emptyPageResources, extractPageResourcesFromDocument } from './convert/resources.js';
 import { selectMarkdownSection } from './convert/section.js';
-import { appendStructuredData, extractStructuredData } from './convert/structuredData.js';
+import { appendStructuredData, extractStructuredDataFromDocument } from './convert/structuredData.js';
 import { appendYouTubeTranscript, extractYouTubeTranscript } from './convert/youtubeTranscript.js';
-import { accessStatusLabel, detectAccessStatus } from './extract/access.js';
-import { extractHeadMetadata, type HeadMetadata } from './extract/head.js';
-import { extractContent } from './extract/readability.js';
+import { accessStatusLabel, detectAccessStatus, detectAccessStatusFromDocument } from './extract/access.js';
+import { extractHeadMetadataFromDocument, type HeadMetadata } from './extract/head.js';
+import { extractContentFromDocument } from './extract/readability.js';
 import { renderFrontmatter } from './output/frontmatter.js';
 import { renderJsonEnvelope } from './output/envelope.js';
 import type { CliOptions, ContentKind, DocumentMetadata, FetchResult, PageResources, PipelineResult } from './types.js';
+
+interface FetchContext {
+  result: FetchResult;
+  contentKind: ContentKind;
+  document?: Document;
+}
 
 export async function runPipeline(url: string, options: CliOptions): Promise<PipelineResult> {
   const fetchedAt = new Date().toISOString();
 
   try {
-    let result = await fetchWithRendering(url, options);
-    let accessStatus = detectAccessStatus(result.html, result.status);
+    let fetched = await fetchWithRendering(url, options);
+    let { result, contentKind, document } = fetched;
+    let accessStatus = detectAccessStatusForContext(fetched);
 
     if (options.archiveFallback && result.status >= 400 && result.status < 500) {
       const archived = await fetchArchiveSnapshot(result.url, options);
       if (archived && archived.status >= 200 && archived.status < 300) {
-        result = archived;
-        accessStatus = detectAccessStatus(result.html, result.status);
+        fetched = buildFetchContext(archived);
+        ({ result, contentKind, document } = fetched);
+        accessStatus = detectAccessStatusForContext(fetched);
       }
     }
 
@@ -42,7 +51,6 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       });
     }
 
-    const contentKind = classifyContent(result);
     if (contentKind !== 'html') {
       const byteCount = result.body?.byteLength;
       const converted = await convertNonHtml(result, contentKind);
@@ -74,8 +82,9 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       };
     }
 
-    const head = extractHeadMetadata(result.html, result.url);
-    const extracted = extractContent(result.html, result.url, {
+    const htmlDocument = document ?? parseHTML(result.html).document;
+    const head = extractHeadMetadataFromDocument(htmlDocument, result.url);
+    const extracted = extractContentFromDocument(htmlDocument, result.url, {
       full: options.full,
       selector: options.selector,
     });
@@ -84,9 +93,9 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
     });
     const selected = selectMarkdownSection(converted.markdown, options.section);
     const contentMarkdown = options.section ? selected.markdown : converted.markdown;
-    const structuredData = options.structuredData ? extractStructuredData(result.html, result.url) : [];
+    const structuredData = options.structuredData ? extractStructuredDataFromDocument(htmlDocument, result.url) : [];
     const transcript = options.transcripts ? await extractYouTubeTranscript(result.html, result.url, options) : undefined;
-    const resources = options.resources ? extractPageResources(result.html, result.url) : emptyPageResources();
+    const resources = options.resources ? extractPageResourcesFromDocument(htmlDocument, result.url) : emptyPageResources();
     const markdownWithData = options.structuredData
       ? appendStructuredData(contentMarkdown, structuredData)
       : contentMarkdown;
@@ -165,41 +174,71 @@ export async function writeResult(output: string, options: CliOptions): Promise<
   process.stdout.write(output);
 }
 
-async function fetchWithRendering(url: string, options: CliOptions): Promise<FetchResult> {
+async function fetchWithRendering(url: string, options: CliOptions): Promise<FetchContext> {
   if (options.jsMode === 'force') {
-    return fetchWithBrowser(url, options);
+    return buildFetchContext(await fetchWithBrowser(url, options));
   }
 
   const plain = await fetchPlain(url, options);
+  const plainContext = buildFetchContext(plain);
 
   if (plain.status < 200 || plain.status >= 300) {
-    return plain;
+    return plainContext;
   }
 
   if (options.jsMode === 'disabled') {
-    return plain;
+    return plainContext;
   }
 
-  if (classifyContent(plain) !== 'html') {
-    return plain;
+  if (plainContext.contentKind !== 'html') {
+    return plainContext;
   }
 
-  const detection = detectSpa(plain);
+  const detection = detectSpa(plain, plainContext.document);
 
   if (!detection.isSpa) {
-    return plain;
+    return plainContext;
   }
 
   if (!options.quiet) {
     process.stderr.write(`mdurl: SPA shell detected (${detection.reasons.join('; ')}); rendering with browser\n`);
   }
 
-  return fetchWithBrowser(plain.url, options);
+  return buildFetchContext(await fetchWithBrowser(plain.url, options));
 }
 
 async function fetchWithBrowser(url: string, options: CliOptions): Promise<FetchResult> {
   const session = options.getBrowserSession ? await options.getBrowserSession() : undefined;
   return session ? session.fetch(url, options) : fetchBrowser(url, options);
+}
+
+function buildFetchContext(result: FetchResult): FetchContext {
+  const contentKind = classifyContent(result);
+  return {
+    result,
+    contentKind,
+    document: contentKind === 'html' ? parseHtmlDocument(result.html) : undefined,
+  };
+}
+
+function parseHtmlDocument(html: string): Document | undefined {
+  try {
+    return parseHTML(html).document;
+  } catch {
+    return undefined;
+  }
+}
+
+function detectAccessStatusForContext(context: FetchContext): DocumentMetadata['access_status'] {
+  if (context.document) {
+    return detectAccessStatusFromDocument(context.document, context.result.html, context.result.status);
+  }
+
+  if (context.contentKind === 'html' || context.contentKind === 'text') {
+    return detectAccessStatus(context.result.html, context.result.status);
+  }
+
+  return undefined;
 }
 
 function buildMetadata(
@@ -218,7 +257,7 @@ function buildMetadata(
     markdown: string;
     truncated: boolean;
     resources: PageResources;
-    structuredData: ReturnType<typeof extractStructuredData>;
+    structuredData: ReturnType<typeof extractStructuredDataFromDocument>;
     transcriptCount?: number;
   },
 ): DocumentMetadata {

@@ -9,7 +9,10 @@ export interface HeadMetadata {
 
 export function extractHeadMetadata(html: string, baseUrl: string): HeadMetadata {
   const { document } = parseHTML(html);
+  return extractHeadMetadataFromDocument(document, baseUrl);
+}
 
+export function extractHeadMetadataFromDocument(document: Document, baseUrl: string): HeadMetadata {
   return {
     title: text(document.querySelector('title')?.textContent),
     description:

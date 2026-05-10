@@ -4,12 +4,12 @@ import type { FetchResult, SpaDetectionResult } from '../types.js';
 
 const EMPTY_MOUNT_SELECTORS = ['#root', '#app', '[data-reactroot]', '#__next'];
 
-export function detectSpa(result: Pick<FetchResult, 'html' | 'status'>): SpaDetectionResult {
+export function detectSpa(result: Pick<FetchResult, 'html' | 'status'>, parsedDocument?: Document): SpaDetectionResult {
   if (!result.html.trim()) {
     return { isSpa: false, reasons: [] };
   }
 
-  const { document } = parseHTML(result.html);
+  const document = parsedDocument ?? parseHTML(result.html).document;
   const reasons: string[] = [];
   const visibleText = visibleBodyText(document);
   const scriptCount = document.querySelectorAll('script').length;

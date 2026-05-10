@@ -7,7 +7,23 @@ export function detectAccessStatus(html: string, status: number): AccessStatus |
   }
 
   const text = visibleText(html);
+  return detectAccessStatusFromText(html, text, status);
+}
 
+export function detectAccessStatusFromDocument(
+  document: Document,
+  html: string,
+  status: number,
+): AccessStatus | undefined {
+  if (!html.trim()) {
+    return undefined;
+  }
+
+  const text = visibleTextFromDocument(document, html);
+  return detectAccessStatusFromText(html, text, status);
+}
+
+function detectAccessStatusFromText(html: string, text: string, status: number): AccessStatus | undefined {
   if (isBotChallenge(html, text, status)) {
     return 'bot_challenge';
   }
@@ -37,20 +53,23 @@ export function accessStatusLabel(status: AccessStatus): string {
 function visibleText(html: string): string {
   try {
     const { document } = parseHTML(html);
-    for (const element of Array.from(document.querySelectorAll('script, style, template'))) {
-      element.remove();
-    }
-
-    return normalizeText(
-      [
-        document.body?.textContent,
-        document.documentElement?.textContent,
-        html.replace(/<[^>]+>/g, ' '),
-      ].join(' '),
-    );
+    return visibleTextFromDocument(document, html);
   } catch {
     return normalizeText(html.replace(/<[^>]+>/g, ' '));
   }
+}
+
+function visibleTextFromDocument(document: Document, html: string): string {
+  const root = document.body ?? document.documentElement;
+  const clone = root?.cloneNode(true) as Element | undefined;
+
+  if (clone) {
+    for (const element of Array.from(clone.querySelectorAll('script, style, template'))) {
+      element.remove();
+    }
+  }
+
+  return normalizeText([clone?.textContent, html.replace(/<[^>]+>/g, ' ')].join(' '));
 }
 
 function isBotChallenge(html: string, text: string, status: number): boolean {
