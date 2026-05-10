@@ -52,6 +52,19 @@ describe('htmlToMarkdown', () => {
     expect(result.markdown).not.toContain('<table>');
   });
 
+  it('converts ARIA headings to markdown headings', () => {
+    const result = htmlToMarkdown(
+      `
+        <div role="heading" aria-level="2">Connection examples</div>
+        <p>Use these snippets as templates.</p>
+      `,
+      'https://example.com/',
+      { includeLinks: false },
+    );
+
+    expect(result.markdown).toContain('## Connection examples');
+  });
+
   it('promotes standalone language labels into fenced code info strings', () => {
     const result = htmlToMarkdown(
       `
@@ -79,6 +92,23 @@ describe('htmlToMarkdown', () => {
 
     expect(result.markdown).toContain('```ts\nconst value: string = "typed";');
     expect(result.markdown).toContain('```sh\nnpm test');
+  });
+
+  it('preserves line breaks from syntax highlighter line wrappers', () => {
+    const result = htmlToMarkdown(
+      `
+        <p>Copy this SSH config:</p>
+        <pre><code>
+          <span class="line">Host ssh.example.com</span>
+          <span class="line">  ProxyCommand ssh bastion nc %h %p</span>
+        </code></pre>
+      `,
+      'https://example.com/',
+      { includeLinks: false },
+    );
+
+    expect(result.markdown).toContain('```\nHost ssh.example.com\n  ProxyCommand ssh bastion nc %h %p\n```');
+    expect(result.markdown).not.toContain('ssh.example.comProxyCommand');
   });
 
   it('preserves TeX from MathJax and KaTeX markup', () => {

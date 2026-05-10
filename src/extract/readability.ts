@@ -68,17 +68,23 @@ export function shouldUseCleanFallback(
     return false;
   }
 
-  const ratio = readableLength / cleanedLength;
-  if (ratio >= 0.35) {
-    return false;
-  }
-
   const readableStructure = countContentStructure(readableHtml);
   const cleanedStructure = countContentStructure(cleanedHtml);
   const missedHeadings =
     cleanedStructure.headings >= 8 && readableStructure.headings < cleanedStructure.headings * 0.5;
   const missedPrices =
     cleanedStructure.priceLike >= 8 && readableStructure.priceLike < cleanedStructure.priceLike * 0.5;
+  const severelyMissedHeadings =
+    cleanedStructure.headings >= 8 && readableStructure.headings < Math.max(2, cleanedStructure.headings * 0.25);
+
+  if (severelyMissedHeadings) {
+    return true;
+  }
+
+  const ratio = readableLength / cleanedLength;
+  if (ratio >= 0.35) {
+    return false;
+  }
 
   return ratio < 0.2 && (missedHeadings || missedPrices);
 }
@@ -109,7 +115,7 @@ function countContentStructure(html: string): { headings: number; priceLike: num
   const text = document.body?.textContent ?? '';
 
   return {
-    headings: document.querySelectorAll('h1, h2, h3, h4, h5, h6').length,
+    headings: document.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]').length,
     priceLike: text.match(/\$?\b\d+\.\d{2}\b/g)?.length ?? 0,
   };
 }

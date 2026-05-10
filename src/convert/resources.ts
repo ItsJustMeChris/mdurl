@@ -196,14 +196,28 @@ export function appendPageResources(markdown: string, resources: PageResources):
 }
 
 function extractHeadings(document: Document, baseUrl: string): PageHeadingReference[] {
-  return Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+  return Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]'))
     .map((heading) => ({
-      level: Number.parseInt(heading.tagName.slice(1), 10),
+      level: headingLevel(heading),
       text: normalizeText(heading.textContent ?? ''),
       url: headingUrl(heading, baseUrl),
     }))
     .filter((heading) => heading.text)
     .map((heading, index) => ({ ...heading, index: index + 1 }));
+}
+
+function headingLevel(heading: Element): number {
+  const tagName = heading.tagName.toLowerCase();
+  if (/^h[1-6]$/u.test(tagName)) {
+    return Number.parseInt(tagName.slice(1), 10);
+  }
+
+  const ariaLevel = Number.parseInt(heading.getAttribute('aria-level') ?? '', 10);
+  if (Number.isFinite(ariaLevel)) {
+    return Math.min(Math.max(ariaLevel, 1), 6);
+  }
+
+  return 2;
 }
 
 function extractPagination(document: Document, baseUrl: string): PagePaginationReference[] {

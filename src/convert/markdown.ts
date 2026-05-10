@@ -35,8 +35,15 @@ export function htmlToMarkdown(
         : `$${tex}$`;
     },
   });
-  turndown.addRule('fencedCodeWithLanguage', {
-    filter: (node) => isLanguageCodeBlock(node as Element),
+  turndown.addRule('ariaHeading', {
+    filter: (node) => node.nodeType === 1 && isAriaHeading(node as Element),
+    replacement: (content, node) => {
+      const heading = content.trim();
+      return heading ? `\n\n${'#'.repeat(headingLevel(node as Element))} ${heading}\n\n` : '';
+    },
+  });
+  turndown.addRule('fencedCodeBlock', {
+    filter: (node) => node.nodeName === 'PRE',
     replacement: (_content, node) => codeBlockToMarkdown(node as Element),
   });
   turndown.addRule('stripEmptyLinks', {
@@ -171,20 +178,90 @@ function normalizeLanguageLabel(language: string): string | undefined {
   return allowed.has(aliased) ? aliased : undefined;
 }
 
-function isLanguageCodeBlock(node: Element): boolean {
-  if (node.nodeName !== 'PRE') {
-    return false;
-  }
-
-  return Boolean(codeLanguage(node));
-}
-
 function codeBlockToMarkdown(node: Element): string {
   const language = codeLanguage(node);
-  const code = (node.querySelector('code') ?? node).textContent?.replace(/\n$/, '') ?? '';
+  const code = codeBlockText(node);
   const fence = codeFenceFor(code);
 
-  return `\n\n${fence}${language}\n${code}\n${fence}\n\n`;
+  return `\n\n${fence}${language ?? ''}\n${code}\n${fence}\n\n`;
+}
+
+function codeBlockText(pre: Element): string {
+  const code = pre.querySelector('code') ?? pre;
+  const lineElements = codeLineElements(code);
+
+  if (lineElements.length > 1) {
+    return lineElements.map(codeLineText).join('\n').replace(/\n$/u, '');
+  }
+
+  return normalizeCodeText(code.textContent ?? '');
+}
+
+function codeLineElements(root: Element): Element[] {
+  const directLines = Array.from(root.children).filter(isCodeLineElement);
+  if (directLines.length > 1) {
+    return directLines;
+  }
+
+  return outermostElements(
+    Array.from(root.querySelectorAll('[data-line], [data-line-number], .line, .code-line, .highlight-line')).filter(
+      isCodeLineElement,
+    ),
+  );
+}
+
+function outermostElements(elements: Element[]): Element[] {
+  const elementSet = new Set(elements);
+  return elements.filter((element) => {
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      if (elementSet.has(parent)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+function isCodeLineElement(element: Element): boolean {
+  const tagName = element.tagName.toLowerCase();
+  const className = element.getAttribute('class') ?? '';
+
+  return (
+    element.hasAttribute('data-line') ||
+    element.hasAttribute('data-line-number') ||
+    /\b(?:line|code-line|highlight-line)\b/i.test(className) ||
+    tagName === 'div' ||
+    tagName === 'p'
+  );
+}
+
+function codeLineText(element: Element): string {
+  const clone = element.cloneNode(true) as Element;
+  for (const node of Array.from(
+    clone.querySelectorAll('[aria-hidden="true"], .line-number, .lineno, .line-numbers-rows'),
+  )) {
+    node.remove();
+  }
+
+  return normalizeCodeText(clone.textContent ?? '').replace(/^\n+|\n+$/gu, '');
+}
+
+function normalizeCodeText(value: string): string {
+  return value.replace(/\u00a0/g, ' ').replace(/\n$/u, '');
+}
+
+function isAriaHeading(element: Element): boolean {
+  return element.getAttribute('role') === 'heading' && !/^H[1-6]$/i.test(element.tagName);
+}
+
+function headingLevel(element: Element): number {
+  const level = Number.parseInt(element.getAttribute('aria-level') ?? '', 10);
+  if (Number.isFinite(level)) {
+    return Math.min(Math.max(level, 1), 6);
+  }
+
+  return 2;
 }
 
 function codeLanguage(pre: Element): string | undefined {

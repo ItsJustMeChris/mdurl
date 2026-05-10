@@ -93,6 +93,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
     });
     const selected = selectMarkdownSection(converted.markdown, options.section);
     const contentMarkdown = options.section ? selected.markdown : converted.markdown;
+    const contentHeadingCount = countMarkdownHeadings(contentMarkdown);
     const structuredData = options.structuredData ? extractStructuredDataFromDocument(htmlDocument, result.url) : [];
     const transcript = options.transcripts ? await extractYouTubeTranscript(result.html, result.url, options) : undefined;
     const resources = options.resources ? extractPageResourcesFromDocument(htmlDocument, result.url) : emptyPageResources();
@@ -115,6 +116,7 @@ export async function runPipeline(url: string, options: CliOptions): Promise<Pip
       markdown: truncated.markdown,
       truncated: truncated.truncated,
       resources,
+      contentHeadingCount: options.resources ? contentHeadingCount : undefined,
       structuredData,
       transcriptCount: transcript ? 1 : 0,
     });
@@ -257,6 +259,7 @@ function buildMetadata(
     markdown: string;
     truncated: boolean;
     resources: PageResources;
+    contentHeadingCount?: number;
     structuredData: ReturnType<typeof extractStructuredDataFromDocument>;
     transcriptCount?: number;
   },
@@ -328,8 +331,9 @@ function buildMetadata(
     metadata.link_count = details.resources.links.length;
   }
 
-  if (details.resources.headings.length > 0) {
-    metadata.heading_count = details.resources.headings.length;
+  const headingCount = Math.max(details.resources.headings.length, details.contentHeadingCount ?? 0);
+  if (headingCount > 0) {
+    metadata.heading_count = headingCount;
   }
 
   if (details.resources.pagination.length > 0) {
@@ -382,6 +386,24 @@ function truncateMarkdown(markdown: string, maxBytes?: number): { markdown: stri
     markdown: `${truncated}${marker}`,
     truncated: true,
   };
+}
+
+function countMarkdownHeadings(markdown: string): number {
+  let count = 0;
+  let inFence = false;
+
+  for (const line of markdown.split('\n')) {
+    if (/^```/u.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+
+    if (!inFence && /^#{1,6}\s+\S/u.test(line)) {
+      count += 1;
+    }
+  }
+
+  return count;
 }
 
 function normalizeInputUrl(value: string): string {

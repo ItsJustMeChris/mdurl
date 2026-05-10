@@ -165,4 +165,26 @@ describe('page resources', () => {
     expect(markdown).toContain('### Embeds');
     expect(markdown).toContain('| 1 | article | iframe | Location map | https://example.com/map.html | 600x400 |');
   });
+
+  it('includes ARIA headings in the table of contents', () => {
+    const resources = extractPageResources(
+      `
+        <!doctype html>
+        <html>
+          <body>
+            <main>
+              <div role="heading" aria-level="2" id="connection-examples">Connection examples</div>
+              <div role="heading">Default level</div>
+            </main>
+          </body>
+        </html>
+      `,
+      'https://example.com/docs',
+    );
+
+    expect(resources.headings).toEqual([
+      { index: 1, level: 2, text: 'Connection examples', url: 'https://example.com/docs#connection-examples' },
+      { index: 2, level: 2, text: 'Default level', url: undefined },
+    ]);
+  });
 });

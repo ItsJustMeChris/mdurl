@@ -34,6 +34,18 @@ describe('shouldUseCleanFallback', () => {
 
     expect(shouldUseCleanFallback(readableHtml, readableText, cleanedHtml, cleanedText)).toBe(false);
   });
+
+  it('falls back when Readability keeps text but drops most document headings', () => {
+    const sections = Array.from(
+      { length: 12 },
+      (_, index) => `<section><h2>Step ${index + 1}</h2><p>${'Configuration details. '.repeat(8)}</p></section>`,
+    ).join('');
+    const readableText = sections.replace(/<[^>]+>/g, ' ');
+    const readableHtml = `<article><h1>SSH Guide</h1><p>${readableText}</p></article>`;
+    const cleanedHtml = `<main><h1>SSH Guide</h1>${sections}</main>`;
+
+    expect(shouldUseCleanFallback(readableHtml, readableText, cleanedHtml, readableText)).toBe(true);
+  });
 });
 
 describe('extractContent', () => {
