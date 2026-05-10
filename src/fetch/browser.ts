@@ -3,6 +3,11 @@ import { MdurlError } from '../errors.js';
 import type { BrowserFetchOptions, BrowserSession, FetchResult } from '../types.js';
 import { buildHeaders } from './plain.js';
 
+const DEFAULT_SETTLE_MS = 800;
+const DOM_STABLE_MS = 150;
+const MIN_MEANINGFUL_TEXT_LENGTH = 80;
+const BLOCKED_RESOURCE_TYPES = new Set(['image', 'media', 'font']);
+
 const COMMON_CHROME_PATHS = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -50,6 +55,9 @@ export async function createBrowserSession(options: BrowserFetchOptions, launchU
       userAgent: options.userAgent,
       extraHTTPHeaders: headers,
     });
+
+    await installFastResourcePolicy(context, options);
+
     return {
       fetch: (url, fetchOptions) => renderPage(context, url, fetchOptions),
       close: async () => {
@@ -82,7 +90,7 @@ async function renderPage(
       if (options.waitSelector) {
         await page.waitForSelector(options.waitSelector, { timeout: options.timeoutMs });
       } else {
-        await page.waitForLoadState('networkidle', { timeout: Math.min(options.timeoutMs, 3000) }).catch(() => undefined);
+        await waitForDomSettle(page, options.settleMs ?? DEFAULT_SETTLE_MS);
       }
 
       if (options.waitMs > 0) {
@@ -119,6 +127,68 @@ async function renderPage(
 
     throw new MdurlError('network', errorMessage(error), { url, cause: error });
   }
+}
+
+async function installFastResourcePolicy(
+  context: import('playwright-core').BrowserContext,
+  options: BrowserFetchOptions,
+): Promise<void> {
+  if (options.loadAssets) {
+    return;
+  }
+
+  await context.route('**/*', async (route) => {
+    if (BLOCKED_RESOURCE_TYPES.has(route.request().resourceType())) {
+      await route.abort();
+      return;
+    }
+
+    await route.continue();
+  });
+}
+
+async function waitForDomSettle(page: import('playwright-core').Page, settleMs: number): Promise<void> {
+  if (settleMs <= 0) {
+    return;
+  }
+
+  await page
+    .waitForFunction(
+      ({ minTextLength, stableMs }) => {
+        const body = document.body;
+        if (!body) {
+          return false;
+        }
+
+        const text = (body.innerText || body.textContent || '').replace(/\s+/g, ' ').trim();
+        const signature = [
+          document.title,
+          text.length,
+          body.getElementsByTagName('*').length,
+          body.querySelectorAll('a[href], img, iframe, video, audio, form').length,
+        ].join(':');
+        const stateKey = '__mdurlDomSettle';
+        const stateHost = window as unknown as Record<string, { signature: string; changedAt: number } | undefined>;
+        const now = Date.now();
+        const state = stateHost[stateKey] ?? { signature, changedAt: now };
+
+        if (state.signature !== signature) {
+          state.signature = signature;
+          state.changedAt = now;
+        }
+
+        stateHost[stateKey] = state;
+
+        const hasMeaningfulDom =
+          text.length >= minTextLength ||
+          Boolean(body.querySelector('main, article, [role="main"], h1, h2, form, nav a[href]'));
+
+        return hasMeaningfulDom && now - state.changedAt >= stableMs;
+      },
+      { minTextLength: MIN_MEANINGFUL_TEXT_LENGTH, stableMs: DOM_STABLE_MS },
+      { timeout: settleMs, polling: 50 },
+    )
+    .catch(() => undefined);
 }
 
 export function browserInstallMessage(cause?: unknown): string {

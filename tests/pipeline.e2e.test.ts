@@ -554,6 +554,7 @@ function mockPlaywright(html: string, finalUrl: string): void {
     chromium: {
       launch: vi.fn(async () => ({
         newContext: vi.fn(async () => ({
+          route: vi.fn(async () => undefined),
           newPage: vi.fn(async () => ({
             goto: vi.fn(async () => ({
               status: () => 200,
@@ -563,6 +564,7 @@ function mockPlaywright(html: string, finalUrl: string): void {
             content: vi.fn(async () => html),
             url: vi.fn(() => finalUrl),
             waitForLoadState: vi.fn(async () => undefined),
+            waitForFunction: vi.fn(async () => undefined),
             waitForTimeout: vi.fn(),
             close: vi.fn(async () => undefined),
           })),

@@ -31,8 +31,10 @@ export interface CliOptions {
   referer?: string;
   jsMode: JsMode;
   waitSelector?: string;
+  settleMs?: number;
   waitMs: number;
   browserPath?: string;
+  loadAssets?: boolean;
   full: boolean;
   selector?: string;
   section?: string;
@@ -66,8 +68,10 @@ export interface PlainFetchOptions {
 
 export interface BrowserFetchOptions extends PlainFetchOptions {
   waitSelector?: string;
+  settleMs?: number;
   waitMs: number;
   browserPath?: string;
+  loadAssets?: boolean;
 }
 
 export interface BrowserSession {

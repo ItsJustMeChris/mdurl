@@ -27,11 +27,14 @@ export function buildProgram(): Command {
     .option('--referer <url>', 'Referer header value')
     .option('--cache <dir>', 'enable on-disk HTTP cache in a directory')
     .option('--archive-fallback', 'try the latest Wayback Machine snapshot after a 4xx response')
+    .option('--concurrency <n>', 'maximum URLs to fetch at once', parsePositiveInteger, 4)
     .option('--js', 'force headless browser rendering')
     .option('--no-js', 'disable automatic browser fallback')
     .option('--wait-selector <css>', 'wait for a selector before extracting in browser mode')
+    .option('--settle-ms <n>', 'maximum DOM stability wait after browser rendering', parseNonNegativeInteger, 800)
     .option('--wait-ms <n>', 'extra settle delay after browser rendering', parseNonNegativeInteger, 0)
     .option('--browser-path <path>', 'Chrome/Chromium executable path')
+    .option('--load-assets', 'allow browser mode to fetch images, media, and fonts')
     .option('--full', 'skip Readability and keep cleaned full body')
     .option('--selector <css>', 'extract only a matching element subtree')
     .option('--section <heading>', 'emit only the rendered markdown section matching a heading')
@@ -52,20 +55,22 @@ export function buildProgram(): Command {
 
       const options = normalizeOptions(rawOptions);
       let browserSession: BrowserSession | undefined;
+      let browserSessionPromise: Promise<BrowserSession> | undefined;
 
       if (urls.length > 1 && options.jsMode !== 'disabled') {
         options.getBrowserSession = async () => {
-          browserSession ??= await createBrowserSession(options);
-          return browserSession;
+          browserSessionPromise ??= createBrowserSession(options).then((session) => {
+            browserSession = session;
+            return session;
+          });
+          return browserSessionPromise;
         };
       }
 
-      const results: PipelineResult[] = [];
+      let results: PipelineResult[] = [];
 
       try {
-        for (const url of urls) {
-          results.push(await runPipeline(url, options));
-        }
+        results = await mapConcurrent(urls, rawOptions.concurrency, (url) => runPipeline(url, options));
       } finally {
         await browserSession?.close();
       }
@@ -110,6 +115,33 @@ export async function main(argv = process.argv): Promise<void> {
   }
 }
 
+export async function mapConcurrent<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+
+      if (index >= items.length) {
+        return;
+      }
+
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+  await Promise.all(Array.from({ length: workerCount }, worker));
+
+  return results;
+}
+
 function formatCliResults(results: PipelineResult[], options: CliOptions): string {
   if (results.length === 1) {
     return formatResult(results[0], options);
@@ -138,10 +170,13 @@ interface RawCommandOptions {
   referer?: string;
   cache?: string;
   archiveFallback?: boolean;
+  concurrency: number;
   js?: boolean;
   waitSelector?: string;
+  settleMs: number;
   waitMs: number;
   browserPath?: string;
+  loadAssets?: boolean;
   full?: boolean;
   selector?: string;
   section?: string;
@@ -169,8 +204,10 @@ function normalizeOptions(raw: RawCommandOptions): CliOptions {
     archiveFallback: Boolean(raw.archiveFallback),
     jsMode: normalizeJsMode(raw),
     waitSelector: raw.waitSelector,
+    settleMs: raw.settleMs,
     waitMs: raw.waitMs,
     browserPath: raw.browserPath,
+    loadAssets: Boolean(raw.loadAssets),
     full: Boolean(raw.full),
     selector: raw.selector,
     section: raw.section,

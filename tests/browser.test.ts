@@ -27,13 +27,24 @@ describe('createBrowserSession', () => {
         url,
       })),
       waitForLoadState: vi.fn(async () => undefined),
+      waitForFunction: vi.fn(async () => undefined),
       waitForSelector: vi.fn(async () => undefined),
       waitForTimeout: vi.fn(async () => undefined),
       content: vi.fn(async () => '<html><body><h1>Rendered</h1></body></html>'),
       url: vi.fn(() => 'https://example.com/rendered'),
       close: pageClose,
     };
+    let routeHandler:
+      | ((route: {
+          request: () => { resourceType: () => string };
+          abort: () => Promise<void>;
+          continue: () => Promise<void>;
+        }) => Promise<void>)
+      | undefined;
     const context = {
+      route: vi.fn(async (_pattern: string, handler: typeof routeHandler) => {
+        routeHandler = handler;
+      }),
       newPage: vi.fn(async () => page),
       close: contextClose,
     };
@@ -54,9 +65,53 @@ describe('createBrowserSession', () => {
     await session.close();
 
     expect(launch).toHaveBeenCalledTimes(1);
+    expect(context.route).toHaveBeenCalledWith('**/*', expect.any(Function));
     expect(context.newPage).toHaveBeenCalledTimes(2);
+    expect(page.waitForFunction).toHaveBeenCalledTimes(2);
+    expect(page.waitForLoadState).not.toHaveBeenCalled();
     expect(pageClose).toHaveBeenCalledTimes(2);
     expect(contextClose).toHaveBeenCalledTimes(1);
+    expect(browserClose).toHaveBeenCalledTimes(1);
+
+    const abort = vi.fn(async () => undefined);
+    const continueRequest = vi.fn(async () => undefined);
+    await routeHandler?.({
+      request: () => ({ resourceType: () => 'image' }),
+      abort,
+      continue: continueRequest,
+    });
+    expect(abort).toHaveBeenCalledTimes(1);
+    expect(continueRequest).not.toHaveBeenCalled();
+
+    await routeHandler?.({
+      request: () => ({ resourceType: () => 'script' }),
+      abort,
+      continue: continueRequest,
+    });
+    expect(continueRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not install asset blocking when asset loading is requested', async () => {
+    const context = {
+      route: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+    };
+    const browserClose = vi.fn(async () => undefined);
+    const launch = vi.fn(async () => ({
+      newContext: vi.fn(async () => context),
+      close: browserClose,
+    }));
+
+    vi.doMock('playwright-core', () => ({
+      chromium: { launch },
+    }));
+
+    const { createBrowserSession } = await import('../src/fetch/browser.js');
+    const session = await createBrowserSession({ ...options, loadAssets: true });
+    await session.close();
+
+    expect(context.route).not.toHaveBeenCalled();
+    expect(context.close).toHaveBeenCalledTimes(1);
     expect(browserClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -38,7 +38,7 @@ mdurl --version
 mdurl --help
 ```
 
-When multiple URLs are provided, markdown/frontmatter outputs are concatenated with `<!-- mdurl-next-url -->` separators. With `--json`, output is a JSON array of envelopes. In browser mode, batched URLs reuse one Chromium session.
+When multiple URLs are provided, mdurl fetches them concurrently while preserving output order. Markdown/frontmatter outputs are concatenated with `<!-- mdurl-next-url -->` separators. With `--json`, output is a JSON array of envelopes. In browser mode, batched URLs reuse one Chromium session.
 
 ### Fetching
 
@@ -55,18 +55,21 @@ Plain HTTP fetches retry transient `429`/`5xx` responses and request timeouts wi
 | `--referer <url>` | | Referer header. |
 | `--cache <dir>` | | Enable on-disk HTTP cache in a directory. |
 | `--archive-fallback` | | Try the latest Wayback Machine snapshot after a 4xx response. |
+| `--concurrency <n>` | `4` | Maximum URLs to fetch at once. |
 
 ### Rendering
 
-`mdurl` tries plain HTTP first. If the response looks like a sparse SPA shell, it falls back to headless browser rendering. Browser mode waits for `domcontentloaded`, then does a short best-effort network-idle settle unless `--wait-selector` is provided.
+`mdurl` tries plain HTTP first. If the response looks like a sparse SPA shell, it falls back to headless browser rendering. Browser mode waits for `domcontentloaded`, then uses a short DOM-stability settle unless `--wait-selector` is provided. To keep extraction fast, browser mode skips downloading images, media, and fonts by default while still preserving their DOM URLs for markdown resource tables.
 
 | Flag | Description |
 |---|---|
 | `--js` | Force browser rendering. |
 | `--no-js` | Disable automatic browser fallback. |
 | `--wait-selector <css>` | Wait for a selector in browser mode before extracting. |
+| `--settle-ms <n>` | Maximum DOM-stability wait after browser rendering. Defaults to `800`. |
 | `--wait-ms <n>` | Extra settle delay after browser rendering. |
 | `--browser-path <path>` | Override Chrome/Chromium executable path. |
+| `--load-assets` | Allow browser mode to fetch images, media, and fonts. |
 
 `mdurl` uses `playwright-core`, so Chromium is not downloaded during npm install. Install it only when needed:
 
