@@ -9,6 +9,7 @@ export default defineConfig({
   clean: true,
   dts: true,
   splitting: false,
+  external: ['pdfjs-dist/legacy/build/pdf.worker.mjs'],
   banner: {
     js: '#!/usr/bin/env node',
   },

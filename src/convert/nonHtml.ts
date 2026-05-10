@@ -1,7 +1,9 @@
+import { createRequire } from 'node:module';
 import { XMLParser } from 'fast-xml-parser';
-import { PDFParse } from 'pdf-parse';
 import { htmlToMarkdown } from './markdown.js';
 import type { ContentKind, FetchResult } from '../types.js';
+
+const require = createRequire(import.meta.url);
 
 export interface ConvertedNonHtml {
   contentKind: ContentKind;
@@ -89,6 +91,8 @@ async function convertPdf(result: FetchResult): Promise<ConvertedNonHtml> {
     return convertBinary(result);
   }
 
+  await installPdfRuntime();
+  const { PDFParse } = await importPdfParse();
   const parser = new PDFParse({ data: result.body });
 
   try {
@@ -118,6 +122,92 @@ async function convertPdf(result: FetchResult): Promise<ConvertedNonHtml> {
   } finally {
     await parser.destroy();
   }
+}
+
+async function installPdfRuntime(): Promise<void> {
+  installPdfDomPolyfills();
+
+  const globalScope = globalThis as typeof globalThis & {
+    pdfjsWorker?: unknown;
+  };
+
+  if (!globalScope.pdfjsWorker) {
+    await withSuppressedPdfCanvasWarning(() => import('pdfjs-dist/legacy/build/pdf.worker.mjs'));
+  }
+}
+
+async function importPdfParse(): Promise<typeof import('pdf-parse')> {
+  return withSuppressedPdfCanvasWarning(() => import('pdf-parse'));
+}
+
+async function withSuppressedPdfCanvasWarning<T>(operation: () => Promise<T>): Promise<T> {
+  const originalWarn = console.warn;
+
+  console.warn = (...args: unknown[]) => {
+    const message = args.map(String).join(' ');
+    if (/Cannot load "@napi-rs\/canvas" package/.test(message)) {
+      return;
+    }
+
+    originalWarn(...args);
+  };
+
+  try {
+    return await operation();
+  } finally {
+    console.warn = originalWarn;
+  }
+}
+
+function installPdfDomPolyfills(): void {
+  const globalScope = globalThis as typeof globalThis & {
+    DOMMatrix?: typeof DOMMatrix;
+    DOMPoint?: typeof DOMPoint;
+    DOMRect?: typeof DOMRect;
+    ImageData?: typeof ImageData;
+    Path2D?: typeof Path2D;
+  };
+
+  if (!globalScope.DOMMatrix || !globalScope.DOMPoint || !globalScope.DOMRect) {
+    const geometry = require('@napi-rs/canvas/geometry.js') as {
+      DOMMatrix: typeof DOMMatrix;
+      DOMPoint: typeof DOMPoint;
+      DOMRect: typeof DOMRect;
+    };
+
+    globalScope.DOMMatrix ??= geometry.DOMMatrix;
+    globalScope.DOMPoint ??= geometry.DOMPoint;
+    globalScope.DOMRect ??= geometry.DOMRect;
+  }
+
+  globalScope.ImageData ??= MinimalImageData as unknown as typeof ImageData;
+  globalScope.Path2D ??= MinimalPath2D as unknown as typeof Path2D;
+}
+
+class MinimalImageData {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+  colorSpace = 'srgb';
+
+  constructor(dataOrWidth: Uint8ClampedArray | number, widthOrHeight: number, height?: number) {
+    if (typeof dataOrWidth === 'number') {
+      this.width = dataOrWidth;
+      this.height = widthOrHeight;
+      this.data = new Uint8ClampedArray(this.width * this.height * 4);
+      return;
+    }
+
+    this.data = dataOrWidth;
+    this.width = widthOrHeight;
+    this.height = height ?? Math.floor(dataOrWidth.length / Math.max(1, widthOrHeight * 4));
+  }
+}
+
+class MinimalPath2D {
+  constructor(_path?: string | MinimalPath2D) {}
+
+  addPath(): void {}
 }
 
 function convertJson(result: FetchResult): ConvertedNonHtml {

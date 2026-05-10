@@ -12,11 +12,20 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:bun": "bun build --compile --external electron --external 'chromium-bidi*' --outfile dist/mdurl-bun src/cli.ts",
+    "build:bun:darwin-arm64": "bun build --compile --target=bun-darwin-arm64 --external electron --external 'chromium-bidi*' --outfile dist/mdurl-bun-darwin-arm64 src/cli.ts",
+    "build:bun:darwin-x64": "bun build --compile --target=bun-darwin-x64 --external electron --external 'chromium-bidi*' --outfile dist/mdurl-bun-darwin-x64 src/cli.ts",
+    "build:bun:linux-arm64": "bun build --compile --target=bun-linux-arm64 --external electron --external 'chromium-bidi*' --outfile dist/mdurl-bun-linux-arm64 src/cli.ts",
+    "build:bun:linux-x64": "bun build --compile --target=bun-linux-x64 --external electron --external 'chromium-bidi*' --outfile dist/mdurl-bun-linux-x64 src/cli.ts",
+    "build:bun:windows-x64": "bun build --compile --target=bun-windows-x64 --external electron --external 'chromium-bidi*' --outfile dist/mdurl-bun-windows-x64.exe src/cli.ts",
+    "build:bun:all": "npm run build:bun:darwin-arm64 && npm run build:bun:darwin-x64 && npm run build:bun:linux-arm64 && npm run build:bun:linux-x64 && npm run build:bun:windows-x64",
     "dev": "tsx src/cli.ts",
+    "dev:bun": "bun src/cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "prepack": "npm run build",
-    "smoke": "bash scripts/smoke.sh"
+    "smoke": "bash scripts/smoke.sh",
+    "smoke:bun": "bash scripts/smoke-bun.sh"
   },
   "engines": {
     "node": ">=20"

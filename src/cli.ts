@@ -1,11 +1,10 @@
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Command, InvalidArgumentError } from 'commander';
-import { createBrowserSession } from './fetch/browser.js';
-import { installBrowser } from './installBrowser.js';
-import { formatResult, runPipeline, writeResult } from './pipeline.js';
-import { jsonEnvelopeObject } from './output/envelope.js';
 import type { BrowserSession, CliOptions, HeaderPair, JsMode, PipelineResult } from './types.js';
+
+type FormatResult = typeof import('./pipeline.js').formatResult;
+type JsonEnvelopeObject = typeof import('./output/envelope.js').jsonEnvelopeObject;
 
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 mdurl/0.1.0';
@@ -54,6 +53,8 @@ export function buildProgram(): Command {
       }
 
       const options = normalizeOptions(rawOptions);
+      const [{ createBrowserSession }, { formatResult, runPipeline, writeResult }, { jsonEnvelopeObject }] =
+        await Promise.all([import('./fetch/browser.js'), import('./pipeline.js'), import('./output/envelope.js')]);
       let browserSession: BrowserSession | undefined;
       let browserSessionPromise: Promise<BrowserSession> | undefined;
 
@@ -75,7 +76,7 @@ export function buildProgram(): Command {
         await browserSession?.close();
       }
 
-      const output = formatCliResults(results, options);
+      const output = formatCliResults(results, options, formatResult, jsonEnvelopeObject);
       await writeResult(output, options);
 
       if (!options.quiet && !options.output) {
@@ -93,6 +94,7 @@ export function buildProgram(): Command {
     .command('install-browser')
     .description('Download Chromium for Playwright browser rendering.')
     .action(async () => {
+      const { installBrowser } = await import('./installBrowser.js');
       await installBrowser();
     });
 
@@ -142,7 +144,12 @@ export async function mapConcurrent<T, R>(
   return results;
 }
 
-function formatCliResults(results: PipelineResult[], options: CliOptions): string {
+function formatCliResults(
+  results: PipelineResult[],
+  options: CliOptions,
+  formatResult: FormatResult,
+  jsonEnvelopeObject: JsonEnvelopeObject,
+): string {
   if (results.length === 1) {
     return formatResult(results[0], options);
   }

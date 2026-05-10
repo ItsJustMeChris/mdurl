@@ -77,6 +77,29 @@ Plain HTTP fetches retry transient `429`/`5xx` responses and request timeouts wi
 mdurl install-browser
 ```
 
+### Bun Runtimes
+
+The TypeScript CLI can run directly on Bun:
+
+```sh
+bun src/cli.ts https://example.com
+```
+
+Build a native Bun executable for the current platform:
+
+```sh
+npm run build:bun
+dist/mdurl-bun https://example.com
+```
+
+Cross-compile release binaries:
+
+```sh
+npm run build:bun:all
+```
+
+This emits `dist/mdurl-bun-darwin-arm64`, `dist/mdurl-bun-darwin-x64`, `dist/mdurl-bun-linux-arm64`, `dist/mdurl-bun-linux-x64`, and `dist/mdurl-bun-windows-x64.exe`. The compiled runtime bundles mdurl's normal HTTP, HTML, feed, JSON, text, PDF, and Playwright browser-rendering pipeline. Chrome/Chromium itself is still an external runtime dependency for `--js` and automatic SPA fallback, matching the existing optional browser-rendering requirement.
+
 ### Extraction
 
 | Flag | Description |
