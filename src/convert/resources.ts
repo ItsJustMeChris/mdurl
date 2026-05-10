@@ -19,6 +19,17 @@ const EMPTY_RESOURCES: PageResources = {
   embeds: [],
 };
 
+const NON_RENDERED_RESOURCE_SELECTORS = [
+  'script',
+  'style',
+  'template',
+  'noscript',
+  '[hidden]',
+  '[aria-hidden="true"]',
+  '[style*="display:none"]',
+  '[style*="display: none"]',
+].join(',');
+
 export function emptyPageResources(): PageResources {
   return {
     headings: [],
@@ -37,6 +48,8 @@ export function extractPageResources(html: string, baseUrl: string): PageResourc
     return EMPTY_RESOURCES;
   }
 
+  removeNonRenderedResourceNodes(document);
+
   return {
     headings: extractHeadings(document, baseUrl),
     pagination: extractPagination(document, baseUrl),
@@ -45,6 +58,12 @@ export function extractPageResources(html: string, baseUrl: string): PageResourc
     forms: extractForms(document, baseUrl),
     embeds: extractEmbeds(document, baseUrl),
   };
+}
+
+function removeNonRenderedResourceNodes(document: Document): void {
+  for (const element of Array.from(document.querySelectorAll(NON_RENDERED_RESOURCE_SELECTORS))) {
+    element.remove();
+  }
 }
 
 export function appendPageResources(markdown: string, resources: PageResources): string {

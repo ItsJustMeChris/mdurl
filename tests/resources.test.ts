@@ -24,6 +24,18 @@ describe('page resources', () => {
         expect.objectContaining({ level: 2, text: 'Featured Burgers' }),
       ]),
     );
+    expect(resources.headings).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'JavaScript is not available.' }),
+        expect.objectContaining({ text: 'Hidden fallback' }),
+      ]),
+    );
+    expect(resources.links).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: 'https://example.com/unsupported-browser' }),
+        expect.objectContaining({ url: 'https://example.com/hidden-link' }),
+      ]),
+    );
     expect(resources.pagination).toEqual([
       { index: 1, rel: 'next', text: 'next', url: 'https://example.com/menu/page/2' },
       { index: 2, rel: 'prev', text: 'Previous page', url: 'https://example.com/menu/page/0' },
