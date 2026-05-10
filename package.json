@@ -1,5 +1,5 @@
 {
-  "name": "mdurl",
+  "name": "mdurl-cli",
   "version": "0.1.0",
   "description": "A curl-shaped CLI that fetches webpages as clean markdown for agents.",
   "type": "module",

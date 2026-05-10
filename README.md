@@ -3,7 +3,7 @@
 `mdurl` is a curl-shaped CLI that fetches a webpage or web search and emits clean markdown with small, predictable metadata. It is designed as a default "read a webpage" primitive for coding agents and other LLM tools.
 
 ```sh
-npx mdurl https://example.com
+npx mdurl-cli https://example.com
 ```
 
 Default output is a YAML frontmatter block followed by markdown:
