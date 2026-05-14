@@ -52,6 +52,47 @@ describe('htmlToMarkdown', () => {
     expect(result.markdown).not.toContain('<table>');
   });
 
+  it('converts headerless tables instead of keeping raw HTML', () => {
+    const result = htmlToMarkdown(
+      `
+        <table>
+          <tbody>
+            <tr><td>Alice</td><td>Engineering</td></tr>
+            <tr><td>Bob</td><td>Design</td></tr>
+          </tbody>
+        </table>
+      `,
+      'https://example.com/',
+      { includeLinks: false },
+    );
+
+    expect(result.markdown).toContain('| Column 1 | Column 2 |');
+    expect(result.markdown).toContain('| Alice | Engineering |');
+    expect(result.markdown).toContain('| Bob | Design |');
+    expect(result.markdown).not.toContain('<table>');
+  });
+
+  it('converts noncanonical website tables with links, captions, and escaped pipes', () => {
+    const result = htmlToMarkdown(
+      `
+        <table>
+          <caption>Plan comparison</caption>
+          <tbody>
+            <tr><th>Plan</th><th style="text-align: right">Price</th></tr>
+            <tr><td><a href="/pro">Pro | Team</a></td><td>$20</td></tr>
+          </tbody>
+        </table>
+      `,
+      'https://example.com/',
+      { includeLinks: false },
+    );
+
+    expect(result.markdown).toContain('**Plan comparison**');
+    expect(result.markdown).toContain('| Plan | Price |');
+    expect(result.markdown).toContain('| [Pro \\| Team](https://example.com/pro) | $20 |');
+    expect(result.markdown).not.toContain('<table>');
+  });
+
   it('converts ARIA headings to markdown headings', () => {
     const result = htmlToMarkdown(
       `
